@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPT
+  QC
+  SCM
+}
+
+enum ProcessType {
+  INV
+  SCC
+  BATT
+  PD
+  PB
+  WD
+  WB
+  QC
+  PACK
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  uniqCode Int    @unique
+  name     String
+  role     Role
+  password String
+
+  // Relations
+  infoScans InfoScanProduction[]
+  processQcLogs ProcessQcLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Production {
+  id     Int    @id @default(autoincrement())
+  name   String
+  jumlah Int
+
+  // Relations
+  units ProductionUnit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("productions")
+}
+
+model ProductionUnit {
+  id           Int    @id @default(autoincrement())
+  productionId Int
+  uniqCode     String @unique
+
+  // Relations
+  production Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  genUnits   GenProductionUnit[]
+  processQc  ProcessQc?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("production_units")
+}
+
+model GenProductionUnit {
+  id               Int         @id @default(autoincrement())
+  productionUnitId Int
+  uniqCode         String      @unique
+  process          ProcessType
+  jsBarcode        String      // SVG string
+  status           Boolean     @default(false)
+
+  // Relations
+  productionUnit ProductionUnit       @relation(fields: [productionUnitId], references: [id], onDelete: Cascade)
+  infoScans      InfoScanProduction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("gen_production_units")
+}
+
+model InfoScanProduction {
+  id                   Int @id @default(autoincrement())
+  genProductionUnitId  Int
+  pekerja              Int
+
+  // Relations
+  genProductionUnit GenProductionUnit @relation(fields: [genProductionUnitId], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [pekerja], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("info_scan_productions")
+}
+
+model ProcessQc {
+  id               Int @id @default(autoincrement())
+  productionUnitId Int @unique
+  uji_input        Boolean @default(false)
+  uji_output       Boolean @default(false)
+  uji_ac           Boolean @default(false)
+  uji_kabel        Boolean @default(false)
+  labelling        Boolean @default(false)
+
+  // Relations
+  productionUnit ProductionUnit @relation(fields: [productionUnitId], references: [id], onDelete: Cascade)
+  logs           ProcessQcLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("process_qcs")
+}
+
+model ProcessQcLog {
+  id          Int     @id @default(autoincrement())
+  processQcId Int
+  qcUserId    Int
+  action      String  // e.g., "uji_input", "labelling", "uji_ac"
+  status      Boolean
+
+  // Relations
+  processQc ProcessQc @relation(fields: [processQcId], references: [id], onDelete: Cascade)
+  qcUser    User      @relation(fields: [qcUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("process_qc_logs")
+}
