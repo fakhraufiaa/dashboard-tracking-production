@@ -62,7 +62,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
         const data = await response.json()
         setUsers(data)
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Gagal memuat data pengguna",
@@ -101,7 +101,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
       } else {
         throw new Error("Failed to save user")
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Gagal menyimpan data pengguna",
@@ -129,7 +129,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
       } else {
         throw new Error("Failed to delete user")
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Gagal menghapus pengguna",
@@ -224,7 +224,7 @@ export function UserManagement({ onBack }: UserManagementProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select value={formData.role} onValueChange={(value: any) => setFormData({ ...formData, role: value })}>
+                  <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih role" />
                     </SelectTrigger>

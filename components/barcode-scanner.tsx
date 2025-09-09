@@ -35,7 +35,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
         videoRef.current.srcObject = stream
         setIsScanning(true)
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Tidak dapat mengakses kamera",
@@ -92,7 +92,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
           } else {
             throw new Error("Failed to scan barcode")
           }
-        } catch (error) {
+        } catch {
           toast({
             title: "Error",
             description: "Gagal memindai barcode",
@@ -128,7 +128,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
       } else {
         throw new Error("Failed to record scan")
       }
-    } catch (error) {
+    } catch{
       toast({
         title: "Error",
         description: "Gagal mencatat scan",

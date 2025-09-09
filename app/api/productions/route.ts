@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create production and units in a transaction
-    const production = await prisma.$transaction(async (tx : any) => {
+    const production = await prisma.$transaction(async (tx) => {
       // Create the production
       const newProduction = await tx.production.create({
         data: {

@@ -1,101 +1,89 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/session"
-import JsBarcode from "jsbarcode"
-import { JSDOM } from "jsdom"
+import { NextRequest, NextResponse } from "next/server";
+import { $Enums, PrismaClient, ProcessType } from "@prisma/client";
+import JsBarcode from "jsbarcode";
+import { JSDOM } from "jsdom";
+import dayjs from "dayjs";
 
-const PROCESSES = ["INV", "SCC", "BATT", "PD", "PB", "WD", "WB", "QC", "PACK"]
+export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
+const prisma = new PrismaClient();
+
+const processTypes: ProcessType[] = [
+  "INV", "SCC", "BATT", "PD", "PB", "WD", "WB", "QC", "PACK"
+];
+
+export async function POST(req: NextRequest) {
   try {
-    const user = await getSession()
+    const { uniqCode } = await req.json();
 
-    if (!user || user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!uniqCode) {
+      return NextResponse.json(
+        { success: false, error: "uniqCode is required" },
+        { status: 400 }
+      );
     }
 
-    const { unitIds } = await request.json()
+    // 1️⃣ Cari productionUnitId berdasarkan uniqCode
+    const productionUnit = await prisma.productionUnit.findUnique({
+      where: { uniqCode }
+    });
 
-    if (!unitIds || !Array.isArray(unitIds) || unitIds.length === 0) {
-      return NextResponse.json({ error: "Unit IDs harus diisi" }, { status: 400 })
+    if (!productionUnit) {
+      return NextResponse.json(
+        { success: false, error: `Production unit with uniqCode ${uniqCode} not found` },
+        { status: 404 }
+      );
     }
 
-    // Get production units
-    const units = await prisma.productionUnit.findMany({
-      where: {
-        id: { in: unitIds },
-      },
-    })
+    const productionUnitId = productionUnit.id;
+    const dateStr = dayjs().format("DDMMYYYY");
+    const genData: { uniqCode: string; process: $Enums.ProcessType; jsBarcode: string; productionUnitId: number; }[] = [];
 
-    if (units.length === 0) {
-      return NextResponse.json({ error: "Unit tidak ditemukan" }, { status: 404 })
+    for (const proc of processTypes) {
+      // buat JSDOM
+      const dom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`, {
+        pretendToBeVisual: true
+      });
+      const document = dom.window.document;
+
+      // buat SVG
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+      const fullCode = `${uniqCode}-${proc}-${dateStr}`;
+
+      JsBarcode(svg, fullCode, {
+        format: "CODE128",
+        displayValue: true,
+        height: 50,
+        fontSize: 12,
+        xmlDocument: document
+      });
+
+      genData.push({
+        uniqCode: fullCode,
+        process: proc,
+        jsBarcode: svg.outerHTML,
+        productionUnitId
+      });
     }
 
-    // Generate current date string (DDMMYYYY)
-    const currentDate = new Date()
-    const dateString = currentDate
-      .toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
-      .replace(/\//g, "")
-
-    // Generate barcodes for each unit and process
-    const genUnitsData = []
-
-    for (const unit of units) {
-      // Check if barcodes already exist for this unit
-      const existingGenUnits = await prisma.genProductionUnit.findMany({
-        where: { productionUnitId: unit.id },
-      })
-
-      if (existingGenUnits.length > 0) {
-        continue // Skip if barcodes already generated
-      }
-
-      for (const process of PROCESSES) {
-        const barcodeText = `${unit.uniqCode}-${process}-${dateString}`
-
-        // Generate SVG barcode using jsbarcode
-        const dom = new JSDOM()
-        const document = dom.window.document
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-
-        JsBarcode(svg, barcodeText, {
-          format: "CODE128",
-          width: 2,
-          height: 50,
-          displayValue: true,
-          fontSize: 12,
-          margin: 10,
-        })
-
-        genUnitsData.push({
-          productionUnitId: unit.id,
-          uniqCode: barcodeText,
-          process: process as any,
-          jsBarcode: svg.outerHTML,
-          status: false,
-        })
-      }
-    }
-
-    if (genUnitsData.length === 0) {
-      return NextResponse.json({ error: "Semua unit sudah memiliki barcode" }, { status: 400 })
-    }
-
-    // Create gen production units
+    // Simpan ke database
     await prisma.genProductionUnit.createMany({
-      data: genUnitsData,
-    })
+      data: genData,
+      skipDuplicates: true
+    });
 
-    return NextResponse.json({
-      message: `Berhasil generate ${genUnitsData.length} barcode untuk ${units.length} unit`,
-      generatedCount: genUnitsData.length,
-    })
+    const created = await prisma.genProductionUnit.findMany({
+      where: { productionUnitId }
+    });
+    
+
+    return NextResponse.json({ success: true, data: created });
   } catch (error) {
-    console.error("Generate barcode error:", error)
-    return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 })
+    console.error("❌ Error in POST /barcode:", error);
+    return NextResponse.json(
+      { success: false, error:"Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

@@ -1,11 +1,11 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { jwtVerify } from "jose"
 import { prisma } from "@/lib/prisma"
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-secret-key")
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // cek cookies
     const cookieStore = await cookies()

@@ -60,7 +60,7 @@ export function ProcessLogging({ onBack }: ProcessLoggingProps) {
         const data = await response.json()
         setProcesses(data)
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Gagal memuat data proses QC",
@@ -76,7 +76,7 @@ export function ProcessLogging({ onBack }: ProcessLoggingProps) {
         const data = await response.json()
         setLogs(data)
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Gagal memuat log proses",
@@ -106,7 +106,7 @@ export function ProcessLogging({ onBack }: ProcessLoggingProps) {
       } else {
         throw new Error("Failed to update QC status")
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Gagal mengupdate status QC",
@@ -219,7 +219,7 @@ export function ProcessLogging({ onBack }: ProcessLoggingProps) {
                     <Checkbox
                       id={item.key}
                       checked={selectedProcess[item.key as keyof QcProcess] as boolean}
-                      onCheckedChange={(checked: any) => updateQcStatus(selectedProcess.id, item.key, checked as boolean)}
+                      onCheckedChange={(checked) => updateQcStatus(selectedProcess.id, item.key, checked as boolean)}
                       disabled={loading}
                     />
                     <Label htmlFor={item.key} className="flex-1">

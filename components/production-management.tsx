@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/lib/use-toast"
 import { ArrowLeft, Plus, Search, Eye, Trash2, Loader2 } from "lucide-react"
 import type { Production, ProductionUnit } from "@/lib/type"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface ProductionWithUnits extends Production {
   units: ProductionUnit[]
@@ -36,7 +37,7 @@ export function ProductionManagement({ onBack }: ProductionManagementProps) {
   const [selectedProduction, setSelectedProduction] = useState<ProductionWithUnits | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
-
+  const [selectedUnits, setSelectedUnits] = useState<number[]>([])
 
   // Form states
   const [formData, setFormData] = useState({
@@ -137,6 +138,47 @@ export function ProductionManagement({ onBack }: ProductionManagementProps) {
       production.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       production.units.some((unit) => unit.uniqCode.toLowerCase().includes(searchTerm.toLowerCase())),
   )
+
+  // Handler untuk toggle satu unit
+const toggleUnitSelection = (unitId: number) => {
+  setSelectedUnits((prev) =>
+    prev.includes(unitId) ? prev.filter((id) => id !== unitId) : [...prev, unitId]
+  )
+}
+
+// Handler untuk toggle semua unit
+const toggleSelectAll = () => {
+  if (!selectedProduction) return
+  if (selectedUnits.length === selectedProduction.units.length) {
+    setSelectedUnits([])
+  } else {
+    setSelectedUnits(selectedProduction.units.map((u) => u.id))
+  }
+}
+
+// Handler generate
+const handleGenerate = async () => {
+  if (selectedUnits.length === 0) {
+    toast({
+      title: "Pilih unit terlebih dahulu",
+      description: "Tidak ada unit yang dipilih",
+      variant: "destructive",
+    })
+    return
+  }
+
+  toast({
+    title: "Generate",
+    description: `Menghasilkan barcode untuk ${selectedUnits.length} unit`,
+  })
+
+  // Contoh panggil API
+  await fetch("/api/barcode/generate/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ unitIds: selectedUnits }),
+  })
+}
 
   return (
     <main className="container mx-auto px-4 py-8">
@@ -304,23 +346,43 @@ export function ProductionManagement({ onBack }: ProductionManagementProps) {
               </div>
 
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>No</TableHead>
-                    <TableHead>Kode Unit</TableHead>
-                    <TableHead>Tanggal Dibuat</TableHead>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <Checkbox
+                      checked={
+                        selectedProduction?.units.length > 0 &&
+                        selectedUnits.length === selectedProduction.units.length
+                      }
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>No</TableHead>
+                  <TableHead>Kode Unit</TableHead>
+                  <TableHead>Tanggal Dibuat</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedProduction.units.map((unit, index) => (
+                  <TableRow key={unit.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedUnits.includes(unit.id)}
+                        onCheckedChange={() => toggleUnitSelection(unit.id)}
+                      />
+                    </TableCell>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell className="font-mono">{unit.uniqCode}</TableCell>
+                    <TableCell>{new Date(unit.createdAt).toLocaleDateString("id-ID")}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedProduction.units.map((unit, index) => (
-                    <TableRow key={unit.id}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell className="font-mono">{unit.uniqCode}</TableCell>
-                      <TableCell>{new Date(unit.createdAt).toLocaleDateString("id-ID")}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                ))}
+              </TableBody>
+            </Table>
+
+            <div className="mt-4 flex justify-end">
+              <Button onClick={handleGenerate}>Generate</Button>
+            </div>
+
             </div>
           )}
         </DialogContent>
