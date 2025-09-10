@@ -1,24 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getSession } from "@/lib/session"
+
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getSession()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
 
     const { unitIds } = await request.json()
 
-    if (!unitIds || !Array.isArray(unitIds)) {
-      return NextResponse.json({ error: "Unit IDs harus diisi" }, { status: 400 })
-    }
-
     const units = await prisma.productionUnit.findMany({
       where: {
-        id: { in: unitIds },
+        ...(unitIds?.length ? { id: { in: unitIds } } : {}), // kalau kosong ambil semua
       },
       include: {
         genUnits: {
@@ -35,8 +26,8 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json({ units })
-  } catch (error) {
-    console.error("Print barcode error:", error)
+  } catch {
+    console.error()
     return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 })
   }
 }

@@ -2,137 +2,134 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/lib/use-toast"
-import { ArrowLeft, ClipboardCheck, Eye } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { ArrowLeft, Eye, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface ProcessLoggingProps {
   onBack: () => void
 }
 
-interface QcProcess {
+interface ProcessUnit {
   id: number
-  productionUnitId: number
-  productionUnit: {
-    uniqCode: string
-    production: {
-      name: string
-    }
+  uniqCode: string
+  production: { name: string }
+  processQc?: {
+    id: number
+    uji_input: boolean
+    uji_output: boolean
+    uji_ac: boolean
+    uji_kabel: boolean
+    labelling: boolean
   }
-  uji_input: boolean
-  uji_output: boolean
-  uji_ac: boolean
-  uji_kabel: boolean
-  labelling: boolean
-  updatedAt: string
-}
-
-interface QcLog {
-  id: number
-  action: string
-  status: boolean
-  qcUser: {
-    name: string
-  }
-  createdAt: string
+  processUnitProductions?: {
+    id: number
+    process: string
+    status: boolean
+    qcUser?: { name: string }
+    createdAt: string
+  }[]
 }
 
 export function ProcessLogging({ onBack }: ProcessLoggingProps) {
-  const [processes, setProcesses] = useState<QcProcess[]>([])
-  const [selectedProcess, setSelectedProcess] = useState<QcProcess | null>(null)
-  const [logs, setLogs] = useState<QcLog[]>([])
+  const [units, setUnits] = useState<ProcessUnit[]>([])
+  const [selectedUnit, setSelectedUnit] = useState<ProcessUnit | null>(null)
+  const [detailUnit, setDetailUnit] = useState<ProcessUnit | null>(null)
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectAll, setSelectAll] = useState(false)
 
+  const checklistFields = ["uji_input", "uji_output", "uji_ac", "uji_kabel", "labelling"]
 
-  useEffect(() => {
-    fetchProcesses()
-  }, [])
+  // Fetch ProcessUnit
+ const fetchUnits = async () => {
+  setLoading(true) // ⬅️ ini penting supaya loading muncul tiap fetch
+  try {
+    const res = await fetch("/api/qc/process-qc")
+    const data = await res.json()
+    setUnits(data.data)
+  } catch {
+    toast({
+      title: "Error",
+      description: "Gagal memuat data QC",
+      variant: "destructive",
+    })
+  } finally {
+    setLoading(false) // ⬅️ berhenti loading apapun hasilnya
+  }
+}
 
-  const fetchProcesses = async () => {
-    try {
-      const response = await fetch("/api/qc/processes")
-      if (response.ok) {
-        const data = await response.json()
-        setProcesses(data)
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "Gagal memuat data proses QC",
-        variant: "destructive",
-      })
-    }
+useEffect(() => {
+  fetchUnits()
+}, [])
+
+  const filteredUnits = units.filter((u) =>
+    u.uniqCode.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const getCompletionCount = (unit: ProcessUnit) => {
+    const total = checklistFields.length
+    const done = checklistFields.filter((f) => unit.processQc?.[f as keyof typeof unit.processQc]).length
+    return { done, total }
   }
 
-  const fetchLogs = async (processId: number) => {
-    try {
-      const response = await fetch(`/api/qc/processes/${processId}/logs`)
-      if (response.ok) {
-        const data = await response.json()
-        setLogs(data)
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "Gagal memuat log proses",
-        variant: "destructive",
-      })
-    }
+  const getQcStatus = (unit: ProcessUnit) => {
+    if (!unit.processQc) return "Checking"
+    const done = checklistFields.every((f) => unit.processQc?.[f as keyof typeof unit.processQc])
+    return done ? "Done" : "Checking"
   }
 
-  const updateQcStatus = async (processId: number, field: string, status: boolean) => {
+  const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/qc/processes/${processId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ field, status }),
+      await fetch("/api/qc/process-qc", {
+        method: "POST",
+        body: JSON.stringify({ productionUnitId: unitId, qcUserId: 1, checklist }), // TODO: ganti qcUserId sesuai user login
       })
-
-      if (response.ok) {
-        toast({
-          title: "Berhasil",
-          description: `Status ${field} berhasil diupdate`,
-        })
-        fetchProcesses()
-        if (selectedProcess) {
-          fetchLogs(selectedProcess.id)
-        }
-      } else {
-        throw new Error("Failed to update QC status")
-      }
+      toast({ title: "Berhasil", description: "QC berhasil disimpan" })
+      fetchUnits()
+      setSelectedUnit(null)
     } catch {
-      toast({
-        title: "Error",
-        description: "Gagal mengupdate status QC",
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: "Gagal menyimpan QC", variant: "destructive" })
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredProcesses = processes.filter(
-    (process) =>
-      process.productionUnit.uniqCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      process.productionUnit.production.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const toggleSelectAll = () => {
+    if (!selectedUnit) return
+    const newVal = !selectAll
+    setSelectedUnit({
+      ...selectedUnit,
+      processQc: {
+        id: selectedUnit.processQc?.id ?? 0,
+        uji_input: typeof selectedUnit.processQc?.uji_input === "boolean" ? newVal : false,
+        uji_output: typeof selectedUnit.processQc?.uji_output === "boolean" ? newVal : false,
+        uji_ac: typeof selectedUnit.processQc?.uji_ac === "boolean" ? newVal : false,
+        uji_kabel: typeof selectedUnit.processQc?.uji_kabel === "boolean" ? newVal : false,
+        labelling: typeof selectedUnit.processQc?.labelling === "boolean" ? newVal : false,
+      },
+    })
+    setSelectAll(newVal)
+  }
 
-  const getCompletionPercentage = (process: QcProcess) => {
-    const total = 5
-    const completed = [
-      process.uji_input,
-      process.uji_output,
-      process.uji_ac,
-      process.uji_kabel,
-      process.labelling,
-    ].filter(Boolean).length
-    return Math.round((completed / total) * 100)
+  const toggleItem = (field: string) => {
+    if (!selectedUnit) return
+    const newQc = {
+      id: selectedUnit.processQc?.id ?? 0,
+      uji_input: selectedUnit.processQc?.uji_input ?? false,
+      uji_output: selectedUnit.processQc?.uji_output ?? false,
+      uji_ac: selectedUnit.processQc?.uji_ac ?? false,
+      uji_kabel: selectedUnit.processQc?.uji_kabel ?? false,
+      labelling: selectedUnit.processQc?.labelling ?? false,
+      [field]: !selectedUnit.processQc?.[field as keyof typeof selectedUnit.processQc]
+    }
+    setSelectedUnit({ ...selectedUnit, processQc: newQc })
+    setSelectAll(Object.values(newQc).every((v) => v === true))
   }
 
   return (
@@ -142,120 +139,159 @@ export function ProcessLogging({ onBack }: ProcessLoggingProps) {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Kembali ke Dashboard
         </Button>
-        <h1 className="text-3xl font-bold text-balance">Process Logging</h1>
-        <p className="text-muted-foreground mt-2">Monitor dan update proses Quality Control</p>
+        <h1 className="text-3xl font-bold text-balance">Process Log</h1>
+        <p className="text-muted-foreground mt-2">Ringkasan QC per Production Unit</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5" />
-              Daftar Proses QC
-            </CardTitle>
-            <CardDescription>Pilih unit produksi untuk monitoring QC</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="search">Cari Unit Produksi</Label>
-              <Input
-                id="search"
-                placeholder="Cari berdasarkan kode atau nama produksi..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+      {/* Search */}
+      <div className="mb-4">
+        <Input
+          placeholder="Cari berdasarkan kode unit..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
 
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {filteredProcesses.map((process) => (
-                <div
-                  key={process.id}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedProcess?.id === process.id ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-                  }`}
-                  onClick={() => {
-                    setSelectedProcess(process)
-                    fetchLogs(process.id)
-                  }}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium">{process.productionUnit.uniqCode}</p>
-                      <p className="text-sm text-muted-foreground">{process.productionUnit.production.name}</p>
-                    </div>
-                    <Badge variant="outline">{getCompletionPercentage(process)}%</Badge>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full transition-all"
-                      style={{ width: `${getCompletionPercentage(process)}%` }}
-                    />
-                  </div>
+      {/* Table Ringkasan ProcessUnit */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Daftar ProcessUnit</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>No</TableHead>
+                <TableHead>Code (Unit)</TableHead>
+                <TableHead>Process QC</TableHead>
+                <TableHead>Status QC</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUnits.map((unit, idx) => {
+                const { done, total } = getCompletionCount(unit)
+                return (
+                  <TableRow key={unit.id}>
+                    <TableCell>{idx + 1}</TableCell>
+                    <TableCell>{unit.uniqCode}</TableCell>
+                    <TableCell>{done}/{total} ✅</TableCell>
+                    <TableCell>{getQcStatus(unit)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => setSelectedUnit(unit)}>
+                          <Eye className="w-4 h-4 mr-1" /> Edit QC
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDetailUnit(unit)}
+                        >
+                          Detail Log
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+          )}     
+        </CardContent>
+      </Card>
+
+      {/* Modal Edit QC */}
+      {selectedUnit && (
+        <Dialog open={true} onOpenChange={() => setSelectedUnit(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit QC - {selectedUnit.uniqCode}</DialogTitle>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-2 mt-4">
+              <Button size="sm" variant="outline" onClick={toggleSelectAll}>
+                {selectAll ? "Unselect All" : "Select All"}
+              </Button>
+
+              {checklistFields.map((field) => (
+                <div key={field} className="flex items-center gap-2">
+                  <Checkbox
+                    checked={Boolean(selectedUnit.processQc?.[field as keyof typeof selectedUnit.processQc])}
+                    onCheckedChange={() => toggleItem(field)}
+                  />
+                  <span className="capitalize">{field.replace("_", " ")}</span>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
 
-        {selectedProcess && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Detail QC Process
-              </CardTitle>
-              <CardDescription>Unit: {selectedProcess.productionUnit.uniqCode}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                {[
-                  { key: "uji_input", label: "Uji Input" },
-                  { key: "uji_output", label: "Uji Output" },
-                  { key: "uji_ac", label: "Uji AC" },
-                  { key: "uji_kabel", label: "Uji Kabel" },
-                  { key: "labelling", label: "Labelling" },
-                ].map((item) => (
-                  <div key={item.key} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={item.key}
-                      checked={selectedProcess[item.key as keyof QcProcess] as boolean}
-                      onCheckedChange={(checked) => updateQcStatus(selectedProcess.id, item.key, checked as boolean)}
-                      disabled={loading}
-                    />
-                    <Label htmlFor={item.key} className="flex-1">
-                      {item.label}
-                    </Label>
-                    <Badge variant={selectedProcess[item.key as keyof QcProcess] ? "default" : "secondary"}>
-                      {selectedProcess[item.key as keyof QcProcess] ? "Selesai" : "Pending"}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setSelectedUnit(null)}>Cancel</Button>
+              <Button
+                onClick={() =>
+                  handleSaveQc(
+                    selectedUnit.id,
+                    checklistFields.reduce(
+                      (acc, field) => ({
+                        ...acc,
+                        [field]: Boolean(selectedUnit.processQc?.[field as keyof typeof selectedUnit.processQc]),
+                      }),
+                      {} as Record<string, boolean>
+                    )
+                  )
+                }
+                disabled={loading}
+              >
+                Save
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
-              {logs.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="font-medium mb-3">Log Aktivitas</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {logs.map((log) => (
-                      <div key={log.id} className="text-sm p-2 bg-muted rounded">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">{log.action}</span>
-                          <Badge variant={log.status ? "default" : "destructive"}>
-                            {log.status ? "Selesai" : "Gagal"}
-                          </Badge>
-                        </div>
-                        <p className="text-muted-foreground">
-                          oleh {log.qcUser.name} • {new Date(log.createdAt).toLocaleString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {/* Modal Detail Log Scan */}
+      {detailUnit && (
+        <Dialog open={true} onOpenChange={() => setDetailUnit(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Detail Log Scan - {detailUnit.uniqCode}</DialogTitle>
+            </DialogHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Process</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>PIC</TableHead>
+                    <TableHead>Datetime</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailUnit.processUnitProductions?.map((log, idx) => (
+                    <TableRow key={log.id}>
+                      <TableCell>{idx + 1}</TableCell>
+                      <TableCell>{detailUnit.uniqCode}</TableCell>
+                      <TableCell>{log.process}</TableCell>
+                      <TableCell>{log.status ? "Done" : "Pending"}</TableCell>
+                      <TableCell>{log.qcUser?.name || "-"}</TableCell>
+                      <TableCell>{new Date(log.createdAt).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex justify-end mt-4">
+              <Button onClick={() => setDetailUnit(null)}>Close</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

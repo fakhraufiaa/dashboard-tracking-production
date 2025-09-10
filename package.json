@@ -1,5 +1,6 @@
 {
   "name": "dashboard-tracking-production",
+  "tittle": "Dashboard Tracking - Production",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -29,6 +30,7 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@types/jsdom": "^21.1.7",
     "@vercel/analytics": "^1.5.0",
+    "@zxing/library": "^0.21.3",
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

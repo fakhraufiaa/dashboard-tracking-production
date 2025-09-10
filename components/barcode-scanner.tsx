@@ -2,10 +2,18 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { toast } from "@/lib/use-toast"
-import { ArrowLeft, Camera, CameraOff, Scan } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { toast } from "@/lib/use-toast"
+import { ArrowLeft, Camera, CameraOff, Loader2, Scan } from "lucide-react"
+import {
+  BrowserMultiFormatReader,
+  BarcodeFormat,
+  DecodeHintType,
+} from "@zxing/library"
+
+
+
 
 interface BarcodeScannerProps {
   onBack: () => void
@@ -20,128 +28,137 @@ interface ScanResult {
 
 export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
   const [isScanning, setIsScanning] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  // const lastScanRef = useRef<string | null>(null)
+  const scanCooldownRef = useRef<boolean>(false);
+
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }, // Use back camera on mobile
-      })
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        setIsScanning(true)
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "Tidak dapat mengakses kamera",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream
-      stream.getTracks().forEach((track) => track.stop())
-      videoRef.current.srcObject = null
-    }
-    setIsScanning(false)
-  }
-
-  const captureAndScan = async () => {
-    if (!videoRef.current || !canvasRef.current) return
-
-    const canvas = canvasRef.current
-    const video = videoRef.current
-    const context = canvas.getContext("2d")
-
-    if (!context) return
-
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    context.drawImage(video, 0, 0)
-
-    // Convert canvas to blob and send to API for processing
-    canvas.toBlob(
-      async (blob) => {
-        if (!blob) return
-
-        setLoading(true)
-        try {
-          const formData = new FormData()
-          formData.append("image", blob)
-
-          const response = await fetch("/api/barcode/scan", {
-            method: "POST",
-            body: formData,
-          })
-
-          if (response.ok) {
-            const data = await response.json()
-            setScanResult(data)
-            stopCamera()
-            toast({
-              title: "Berhasil",
-              description: "Barcode berhasil dipindai",
-            })
-          } else {
-            throw new Error("Failed to scan barcode")
-          }
-        } catch {
-          toast({
-            title: "Error",
-            description: "Gagal memindai barcode",
-            variant: "destructive",
-          })
-        } finally {
-          setLoading(false)
-        }
-      },
-      "image/jpeg",
-      0.8,
-    )
-  }
-
-  const recordScan = async () => {
-    if (!scanResult) return
-
-    try {
-      const response = await fetch("/api/barcode/record-scan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          genProductionUnitId: scanResult.uniqCode,
-        }),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Berhasil",
-          description: "Scan berhasil dicatat",
-        })
-        setScanResult(null)
-      } else {
-        throw new Error("Failed to record scan")
-      }
-    } catch{
-      toast({
-        title: "Error",
-        description: "Gagal mencatat scan",
-        variant: "destructive",
-      })
-    }
-  }
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
 
   useEffect(() => {
     return () => {
-      stopCamera()
+      stopScanning()
     }
   }, [])
+
+ const startScanning = async () => {
+  try {
+    setCameraError(null)
+    setIsScanning(true)
+
+    const hints = new Map()
+hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
+
+codeReaderRef.current = new BrowserMultiFormatReader(hints)
+
+    const videoInputDevices = await codeReaderRef.current.listVideoInputDevices()
+    if (videoInputDevices.length === 0) throw new Error("Tidak ada kamera tersedia")
+
+    const selectedDeviceId = videoInputDevices[0].deviceId
+
+    // 🚀 Paksa hanya baca CODE128
+
+    codeReaderRef.current.decodeFromVideoDevice(
+      selectedDeviceId,
+      videoRef.current!,
+      (result, error) => {
+        if (result) {
+          console.log("📷 RAW hasil scan:", result.getText())
+          handleScanSuccess(result.getText())
+        }
+        if (error && !(error.name === "NotFoundException")) {
+          console.error("Scan error:", error)
+        }
+      }
+    )
+  } catch (error) {
+    console.error("Camera error:", error)
+    setCameraError(error instanceof Error ? error.message : "Gagal mengakses kamera")
+    setIsScanning(false)
+  }
+}
+
+
+  const stopScanning = () => {
+    if (codeReaderRef.current) {
+      codeReaderRef.current.reset()
+      codeReaderRef.current = null
+    }
+    setIsScanning(false)
+    setIsLoading(false)
+  }
+
+
+
+const handleScanSuccess = async (barcodeText: string) => {
+  const cleanBarcode = barcodeText.trim()
+
+  // 🚨 Cegah duplikat selama 2 detik
+  if (scanCooldownRef.current) return
+  scanCooldownRef.current = true
+  setTimeout(() => { scanCooldownRef.current = false }, 2000)
+
+  console.log("📷 Scan:", cleanBarcode)
+
+  setIsLoading(true)
+  try {
+    const response = await fetch("/api/barcode/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ barcodeText: cleanBarcode }),
+    })
+
+    const data = await response.json()
+    if (response.ok) {
+      setScanResult(data)
+      toast({ title: "Berhasil", description: "Barcode berhasil dipindai" })
+
+      stopScanning() // ✅ bisa stop kalau sekali scan cukup
+    } else {
+      toast({
+        title: "Error",
+        description: data.error || "Gagal memproses barcode",
+        variant: "destructive",
+      })
+    }
+  } catch {
+    toast({
+      title: "Error",
+      description: "Terjadi kesalahan saat memproses barcode",
+      variant: "destructive",
+    })
+  } finally {
+    setIsLoading(false)
+  }
+}
+
+
+
+  // const recordScan = async () => {
+  //   if (!scanResult) return
+  //   try {
+  //     const res = await fetch("/api/barcode/scan", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ genProductionUnitId: scanResult.uniqCode }),
+  //     })
+  //     if (res.ok) {
+  //       toast({ title: "Berhasil", description: "Scan berhasil dicatat" })
+  //       setScanResult(null)
+  //     } else {
+  //       throw new Error("Failed to record scan")
+  //     }
+  //   } catch {
+  //     toast({
+  //       title: "Error",
+  //       description: "Gagal mencatat scan",
+  //       variant: "destructive",
+  //     })
+  //   }
+  // }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -151,62 +168,79 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
           Kembali ke Dashboard
         </Button>
         <h1 className="text-3xl font-bold text-balance">Scan Barcode</h1>
-        <p className="text-muted-foreground mt-2">Pindai barcode produksi untuk tracking</p>
+        <p className="text-muted-foreground mt-2">
+          Pindai barcode produksi untuk tracking
+        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Scanner */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Scan className="h-5 w-5" />
               Scanner Barcode
             </CardTitle>
-            <CardDescription>Gunakan kamera untuk memindai barcode</CardDescription>
+            <CardDescription>
+              Gunakan kamera untuk memindai barcode
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+            <div className="relative bg-muted rounded-lg overflow-hidden">
               {isScanning ? (
-                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                <div className="relative w-full h-full">
+                  {/* Video diperlebar (horizontal frame) */}
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full max-w-3xl mx-auto"
+                    style={{ aspectRatio: "16/5", objectFit: "cover" }}
+                  />
+                  {isLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                      <Loader2 className="h-6 w-6 text-white animate-spin" />
+                      <span className="ml-2 text-white">Memproses...</span>
+                    </div>
+                  )}
+                  {/* Kotak merah horizontal */}
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5 h-20 border-4 border-red-500 rounded"></div>
+                </div>
               ) : (
-                <div className="flex items-center justify-center h-full">
+                <div className="flex items-center justify-center aspect-video">
                   <div className="text-center">
                     <Camera className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Kamera tidak aktif</p>
+                    <p className="text-sm text-muted-foreground">
+                      Kamera tidak aktif
+                    </p>
                   </div>
-                </div>
-              )}
-
-              {/* Scanning overlay */}
-              {isScanning && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-48 h-48 border-2 border-primary rounded-lg animate-pulse" />
                 </div>
               )}
             </div>
 
-            <canvas ref={canvasRef} className="hidden" />
+            {cameraError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{cameraError}</p>
+              </div>
+            )}
 
-            <div className="flex gap-2">
-              {!isScanning ? (
-                <Button onClick={startCamera} className="flex-1">
+            <div className="flex justify-center gap-2">
+              {isScanning ? (
+                <Button onClick={stopScanning} variant="outline">
+                  <CameraOff className="mr-2 h-4 w-4" />
+                  Stop
+                </Button>
+              ) : (
+                <Button onClick={startScanning}>
                   <Camera className="mr-2 h-4 w-4" />
                   Mulai Scan
                 </Button>
-              ) : (
-                <>
-                  <Button onClick={captureAndScan} disabled={loading} className="flex-1">
-                    {loading ? "Memproses..." : "Capture & Scan"}
-                  </Button>
-                  <Button onClick={stopCamera} variant="outline">
-                    <CameraOff className="mr-2 h-4 w-4" />
-                    Stop
-                  </Button>
-                </>
               )}
             </div>
           </CardContent>
         </Card>
 
+        {/* Result */}
         {scanResult && (
           <Card>
             <CardHeader>
@@ -230,16 +264,16 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Status:</span>
                   <Badge variant={scanResult.status ? "default" : "secondary"}>
-                    {scanResult.status ? "Aktif" : "Selesai"}
+                    {scanResult.status ? "Selesai" : "Belum"}
                   </Badge>
                 </div>
               </div>
 
-              <Button onClick={recordScan} className="w-full">
-                Catat Scan
-              </Button>
-
-              <Button onClick={() => setScanResult(null)} variant="outline" className="w-full">
+              <Button
+                onClick={() => setScanResult(null)}
+                variant="outline"
+                className="w-full"
+              >
                 Scan Lagi
               </Button>
             </CardContent>
@@ -247,5 +281,5 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
         )}
       </div>
     </div>
-  )
+  );
 }

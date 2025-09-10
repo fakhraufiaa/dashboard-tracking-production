@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         format: "CODE128",
         displayValue: true,
         height: 50,
-        fontSize: 12,
+        fontSize: 18,
         xmlDocument: document
       });
 
