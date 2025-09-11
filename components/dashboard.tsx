@@ -56,7 +56,7 @@ export function Dashboard() {
         case "barcode":
         return <BarcodeGenerator onBack={() => setActivePage(null)} />
       case "logging":
-        return <ProcessLogging onBack={() => setActivePage(null)} />
+        return <ProcessLogging onBack={() => setActivePage(null)} goToPage={setActivePage}/>
       case "scan":
         return <BarcodeScanner onBack={() => setActivePage(null)} />
       default:

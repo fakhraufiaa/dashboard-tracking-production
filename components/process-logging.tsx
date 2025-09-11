@@ -9,9 +9,13 @@ import { toast } from "@/lib/use-toast"
 import { ArrowLeft, Eye, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useRouter } from "next/navigation"
+
 
 interface ProcessLoggingProps {
   onBack: () => void
+  goToPage?: React.Dispatch<React.SetStateAction<string | null>>
+
 }
 
 interface ProcessUnit {
@@ -35,13 +39,15 @@ interface ProcessUnit {
   }[]
 }
 
-export function ProcessLogging({ onBack }: ProcessLoggingProps) {
+export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   const [units, setUnits] = useState<ProcessUnit[]>([])
   const [selectedUnit, setSelectedUnit] = useState<ProcessUnit | null>(null)
   const [detailUnit, setDetailUnit] = useState<ProcessUnit | null>(null)
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectAll, setSelectAll] = useState(false)
+  const [scanLogs, setScanLogs] = useState<any[]>([])
+  const router = useRouter()
 
   const checklistFields = ["uji_input", "uji_output", "uji_ac", "uji_kabel", "labelling"]
 
@@ -67,6 +73,24 @@ useEffect(() => {
   fetchUnits()
 }, [])
 
+
+  const fetchScanLogs = async (uniqCode: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/barcode/scan/log?uniqCode=${uniqCode}`)
+      const data = await res.json()
+      if (res.ok) {
+        setScanLogs(data.logs)
+      } else {
+        toast({ title: "Error", description: data.error || "Gagal memuat log scan", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Gagal memuat log scan", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const filteredUnits = units.filter((u) =>
     u.uniqCode.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -83,22 +107,33 @@ useEffect(() => {
     return done ? "Done" : "Checking"
   }
 
-  const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) => {
-    setLoading(true)
-    try {
-      await fetch("/api/qc/process-qc", {
-        method: "POST",
-        body: JSON.stringify({ productionUnitId: unitId, qcUserId: 1, checklist }), // TODO: ganti qcUserId sesuai user login
-      })
-      toast({ title: "Berhasil", description: "QC berhasil disimpan" })
-      fetchUnits()
-      setSelectedUnit(null)
-    } catch {
-      toast({ title: "Error", description: "Gagal menyimpan QC", variant: "destructive" })
-    } finally {
-      setLoading(false)
+const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) => {
+  setLoading(true)
+  try {
+    await fetch("/api/qc/process-qc", {
+      method: "POST",
+      body: JSON.stringify({
+        productionUnitId: unitId,
+        qcUserId: 1, // TODO: ganti qcUserId sesuai user login
+        checklist,
+      }),
+    })
+
+    toast({ title: "Berhasil", description: "QC berhasil disimpan" })
+    fetchUnits()
+    setSelectedUnit(null)
+
+    // ✅ Cek kalau semua checklist sudah true
+    const allChecked = Object.values(checklist).every(Boolean)
+    if (allChecked) {
+      goToPage && goToPage("scan")// direct ke halaman barcode
     }
+  } catch {
+    toast({ title: "Error", description: "Gagal menyimpan QC", variant: "destructive" })
+  } finally {
+    setLoading(false)
   }
+}
 
   const toggleSelectAll = () => {
     if (!selectedUnit) return
@@ -107,11 +142,11 @@ useEffect(() => {
       ...selectedUnit,
       processQc: {
         id: selectedUnit.processQc?.id ?? 0,
-        uji_input: typeof selectedUnit.processQc?.uji_input === "boolean" ? newVal : false,
-        uji_output: typeof selectedUnit.processQc?.uji_output === "boolean" ? newVal : false,
-        uji_ac: typeof selectedUnit.processQc?.uji_ac === "boolean" ? newVal : false,
-        uji_kabel: typeof selectedUnit.processQc?.uji_kabel === "boolean" ? newVal : false,
-        labelling: typeof selectedUnit.processQc?.labelling === "boolean" ? newVal : false,
+        uji_input: newVal ,
+        uji_output:  newVal ,
+        uji_ac:newVal,
+        uji_kabel: newVal,
+        labelling: newVal ,
       },
     })
     setSelectAll(newVal)
@@ -190,7 +225,10 @@ useEffect(() => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setDetailUnit(unit)}
+                          onClick={() => {
+                            setDetailUnit(unit)
+                            fetchScanLogs(unit.uniqCode)
+                          }}
                         >
                           Detail Log
                         </Button>
@@ -254,44 +292,59 @@ useEffect(() => {
       )}
 
       {/* Modal Detail Log Scan */}
-      {detailUnit && (
-        <Dialog open={true} onOpenChange={() => setDetailUnit(null)}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Detail Log Scan - {detailUnit.uniqCode}</DialogTitle>
-            </DialogHeader>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>No</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Process</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>PIC</TableHead>
-                    <TableHead>Datetime</TableHead>
+{detailUnit && (
+  <Dialog open={true} onOpenChange={() => setDetailUnit(null)}>
+    <DialogContent className="max-w-4xl">
+      <DialogHeader>
+        <DialogTitle>Detail Log Scan - {detailUnit.uniqCode}</DialogTitle>
+      </DialogHeader>
+
+      <div className="overflow-x-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>No</TableHead>
+                <TableHead>Process</TableHead>
+                <TableHead>PIC</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Datetime</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {scanLogs.length > 0 ? (
+                scanLogs.map((log, idx) => (
+                  <TableRow key={log.id}>
+                    <TableCell>{idx + 1}</TableCell>
+                    <TableCell>{log.process}</TableCell>
+                    <TableCell>{log.pekerja}</TableCell>
+                    <TableCell>{log.role}</TableCell>
+                    <TableCell>{new Date(log.datetime).toLocaleString()}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailUnit.processUnitProductions?.map((log, idx) => (
-                    <TableRow key={log.id}>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell>{detailUnit.uniqCode}</TableCell>
-                      <TableCell>{log.process}</TableCell>
-                      <TableCell>{log.status ? "Done" : "Pending"}</TableCell>
-                      <TableCell>{log.qcUser?.name || "-"}</TableCell>
-                      <TableCell>{new Date(log.createdAt).toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            <div className="flex justify-end mt-4">
-              <Button onClick={() => setDetailUnit(null)}>Close</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    Belum ada log scan
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+
+      <div className="flex justify-end mt-4">
+        <Button onClick={() => setDetailUnit(null)}>Close</Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+)}
+
     </div>
   )
 }
