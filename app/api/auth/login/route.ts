@@ -36,10 +36,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Return user data (without password)
-    const { password: userWithoutPassword } = user
+    const userWithoutPassword = { ...user }
+    delete (userWithoutPassword as { password?: string }).password
+
     return NextResponse.json(userWithoutPassword)
+
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 })
   }
-}
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
