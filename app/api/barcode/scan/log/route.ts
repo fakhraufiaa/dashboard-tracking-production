@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
         code: gen.uniqCode,
         process: gen.process,
         status: gen.status ? "Done" : "Pending",
-        pic: scan.user?.name || "-",
+        pekerja: scan.user?.name || "-",
         role: scan.user?.role || "-",
         datetime: scan.createdAt,
         }))

@@ -9,7 +9,7 @@ import { toast } from "@/lib/use-toast"
 import { ArrowLeft, Eye, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useRouter } from "next/navigation"
+
 
 
 interface ProcessLoggingProps {
@@ -39,6 +39,15 @@ interface ProcessUnit {
   }[]
 }
 
+interface ScanLog {
+  code: string
+  process: string
+  status: string
+  pekerja: string
+  role: string
+  datetime: string
+}
+
 export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   const [units, setUnits] = useState<ProcessUnit[]>([])
   const [selectedUnit, setSelectedUnit] = useState<ProcessUnit | null>(null)
@@ -46,8 +55,7 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectAll, setSelectAll] = useState(false)
-  const [scanLogs, setScanLogs] = useState<any[]>([])
-  const router = useRouter()
+  const [scanLogs, setScanLogs] = useState<ScanLog[]>([])
 
   const checklistFields = ["uji_input", "uji_output", "uji_ac", "uji_kabel", "labelling"]
 
@@ -126,7 +134,7 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
     // ✅ Cek kalau semua checklist sudah true
     const allChecked = Object.values(checklist).every(Boolean)
     if (allChecked) {
-      goToPage && goToPage("scan")// direct ke halaman barcode
+      goToPage?.("scan")// direct ke halaman barcode
     }
   } catch {
     toast({ title: "Error", description: "Gagal menyimpan QC", variant: "destructive" })
@@ -318,7 +326,7 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
             <TableBody>
               {scanLogs.length > 0 ? (
                 scanLogs.map((log, idx) => (
-                  <TableRow key={log.id}>
+                  <TableRow key={idx}>
                     <TableCell>{idx + 1}</TableCell>
                     <TableCell>{log.process}</TableCell>
                     <TableCell>{log.pekerja}</TableCell>
@@ -327,7 +335,7 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
                   </TableRow>
                 ))
               ) : (
-                <TableRow>
+                <TableRow key={0}>
                   <TableCell colSpan={6} className="text-center text-muted-foreground">
                     Belum ada log scan
                   </TableCell>
