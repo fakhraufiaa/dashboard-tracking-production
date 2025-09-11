@@ -31,6 +31,8 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [scanResult, setScanResult] = useState<ScanResult | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [isBackCamera, setIsBackCamera] = useState(true) 
   // const lastScanRef = useRef<string | null>(null)
   const scanCooldownRef = useRef<boolean>(false);
 
@@ -43,25 +45,29 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
     }
   }, [])
 
- const startScanning = async () => {
+const startScanning = async () => {
   try {
     setCameraError(null)
     setIsScanning(true)
 
     const hints = new Map()
-hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
 
-codeReaderRef.current = new BrowserMultiFormatReader(hints)
+    if (!codeReaderRef.current) {
+      codeReaderRef.current = new BrowserMultiFormatReader(hints)
+    }
 
     const videoInputDevices = await codeReaderRef.current.listVideoInputDevices()
+    setDevices(videoInputDevices)
+
     if (videoInputDevices.length === 0) throw new Error("Tidak ada kamera tersedia")
 
-    const selectedDeviceId = videoInputDevices[0].deviceId
-
-    // 🚀 Paksa hanya baca CODE128
+    const deviceId = isBackCamera
+      ? videoInputDevices[videoInputDevices.length - 1].deviceId
+      : videoInputDevices[0].deviceId
 
     codeReaderRef.current.decodeFromVideoDevice(
-      selectedDeviceId,
+      deviceId,
       videoRef.current!,
       (result, error) => {
         if (result) {
@@ -79,6 +85,7 @@ codeReaderRef.current = new BrowserMultiFormatReader(hints)
     setIsScanning(false)
   }
 }
+
 
 
   const stopScanning = () => {
@@ -223,6 +230,43 @@ const handleScanSuccess = async (barcodeText: string) => {
                 <p className="text-red-600 text-sm">{cameraError}</p>
               </div>
             )}
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={devices.length < 2}
+              onClick={async () => {
+                if (!codeReaderRef.current || devices.length < 2) return
+
+                // hentikan stream kamera lama
+                codeReaderRef.current.reset()
+
+                const newState = !isBackCamera
+                setIsBackCamera(newState)
+
+                const deviceId = newState
+                  ? devices[devices.length - 1].deviceId // kamera belakang
+                  : devices[0].deviceId // kamera depan
+
+                codeReaderRef.current.decodeFromVideoDevice(
+                  deviceId,
+                  videoRef.current!,
+                  (result, error) => {
+                    if (result) {
+                      console.log("📷 RAW hasil scan:", result.getText())
+                      handleScanSuccess(result.getText())
+                    }
+                    if (error && !(error.name === "NotFoundException")) {
+                      console.error("Scan error:", error)
+                    }
+                  }
+                )
+              }}
+            >
+              Ganti ke Kamera {isBackCamera ? "Depan" : "Belakang"}
+            </Button>
+
+
+
 
             <div className="flex justify-center gap-2">
               {isScanning ? (
