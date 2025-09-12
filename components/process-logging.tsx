@@ -60,44 +60,71 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   const checklistFields = ["uji_input", "uji_output", "uji_ac", "uji_kabel", "labelling"]
 
   // Fetch ProcessUnit
- const fetchUnits = async () => {
-  setLoading(true) // ⬅️ ini penting supaya loading muncul tiap fetch
-  try {
-    const res = await fetch("/api/qc/process-qc")
-    const data = await res.json()
-    setUnits(data.data)
-  } catch {
-    toast({
-      title: "Error",
-      description: "Gagal memuat data QC",
-      variant: "destructive",
-    })
-  } finally {
-    setLoading(false) // ⬅️ berhenti loading apapun hasilnya
+  const fetchUnits = async () => {
+    setLoading(true) // ⬅️ ini penting supaya loading muncul tiap fetch
+    try {
+      const res = await fetch("/api/qc/process-qc")
+      const data = await res.json()
+      setUnits(data.data)
+    } catch {
+      toast({
+        title: "Error",
+        description: "Gagal memuat data QC",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false) // ⬅️ berhenti loading apapun hasilnya
+    }
   }
-}
 
-useEffect(() => {
-  fetchUnits()
-}, [])
+  useEffect(() => {
+    fetchUnits()
+  }, [])
 
 
   const fetchScanLogs = async (uniqCode: string) => {
     setLoading(true)
+
     try {
-      const res = await fetch(`/api/barcode/scan/log?uniqCode=${uniqCode}`)
-      const data = await res.json()
-      if (res.ok) {
-        setScanLogs(data.logs)
-      } else {
-        toast({ title: "Error", description: data.error || "Gagal memuat log scan", variant: "destructive" })
+      const es = new EventSource(`/api/barcode/scan/log?uniqCode=${uniqCode}`)
+
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (data.logs) {
+            setScanLogs(data.logs)
+            setLoading(false)
+          }
+        } catch (e) {
+          console.error("❌ Error parsing SSE:", e)
+        }
+      }
+
+      es.onerror = (err) => {
+        console.error("❌ SSE error:", err)
+        es.close()
+        setLoading(false)
+        toast({
+          title: "Error",
+          description: "Gagal terhubung ke stream log scan",
+          variant: "destructive",
+        })
+      }
+
+      // simpan EventSource biar bisa ditutup kalau perlu
+      return () => {
+        es.close()
       }
     } catch {
-      toast({ title: "Error", description: "Gagal memuat log scan", variant: "destructive" })
-    } finally {
       setLoading(false)
+      toast({
+        title: "Error",
+        description: "Gagal memuat log scan",
+        variant: "destructive",
+      })
     }
   }
+
 
   const filteredUnits = units.filter((u) =>
     u.uniqCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -300,58 +327,62 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
       )}
 
       {/* Modal Detail Log Scan */}
-{detailUnit && (
-  <Dialog open={true} onOpenChange={() => setDetailUnit(null)}>
-    <DialogContent className="max-w-4xl">
-      <DialogHeader>
-        <DialogTitle>Detail Log Scan - {detailUnit.uniqCode}</DialogTitle>
-      </DialogHeader>
+      {detailUnit && (
+        <Dialog open={true} onOpenChange={() => setDetailUnit(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Detail Log Scan - {detailUnit.uniqCode}</DialogTitle>
+            </DialogHeader>
 
-      <div className="overflow-x-auto">
-        {loading ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>No</TableHead>
-                <TableHead>Process</TableHead>
-                <TableHead>PIC</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Datetime</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {scanLogs.length > 0 ? (
-                scanLogs.map((log, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell>{log.process}</TableCell>
-                    <TableCell>{log.pekerja}</TableCell>
-                    <TableCell>{log.role}</TableCell>
-                    <TableCell>{new Date(log.datetime).toLocaleString()}</TableCell>
-                  </TableRow>
-                ))
+            {/* Scroll wrapper */}
+            <div className="overflow-x-auto">
+              {loading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
               ) : (
-                <TableRow key={0}>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    Belum ada log scan
-                  </TableCell>
-                </TableRow>
+                <div className="max-h-[400px] overflow-y-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>No</TableHead>
+                        <TableHead>Process</TableHead>
+                        <TableHead>PIC</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Datetime</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {scanLogs.length > 0 ? (
+                        scanLogs.map((log, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell>{idx + 1}</TableCell>
+                            <TableCell>{log.process}</TableCell>
+                            <TableCell>{log.pekerja}</TableCell>
+                            <TableCell>{log.role}</TableCell>
+                            <TableCell>{new Date(log.datetime).toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow key={0}>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            Belum ada log scan
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+            </div>
 
-      <div className="flex justify-end mt-4">
-        <Button onClick={() => setDetailUnit(null)}>Close</Button>
-      </div>
-    </DialogContent>
-  </Dialog>
-)}
+            <div className="flex justify-end mt-4">
+              <Button onClick={() => setDetailUnit(null)}>Close</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
 
     </div>
   )

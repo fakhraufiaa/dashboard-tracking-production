@@ -1,56 +1,76 @@
 // app/api/barcode/scan/log/route.ts
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 
 export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url)
-    const uniqCode = searchParams.get("uniqCode")
+  const { searchParams } = new URL(req.url)
+  const uniqCode = searchParams.get("uniqCode")
 
-    if (!uniqCode) {
-      return NextResponse.json({ error: "uniqCode wajib diisi" }, { status: 400 })
-    }
+  if (!uniqCode) {
+    return new Response("uniqCode wajib diisi", { status: 400 })
+  }
 
-    // Cari ProductionUnit berdasarkan uniqCode induk
-    const productionUnit = await prisma.productionUnit.findUnique({
-      where: { uniqCode },
-      include: {
-        genUnits: {
+  // SSE setup
+  const stream = new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder()
+
+      async function sendLogs() {
+        const productionUnit = await prisma.productionUnit.findUnique({
+          where: { uniqCode: uniqCode as string },
           include: {
-            infoScans: {
+            genUnits: {
               include: {
-                user: true, // PIC
+                infoScans: {
+                  include: { user: true },
+                  orderBy: { createdAt: "asc" },
+                },
               },
-              orderBy: { createdAt: "asc" },
             },
           },
-        },
-      },
-    })
+        })
 
-    if (!productionUnit) {
-      return NextResponse.json({ error: "ProductionUnit tidak ditemukan" }, { status: 404 })
-    }
+        if (!productionUnit) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ error: "ProductionUnit tidak ditemukan" })}\n\n`)
+          )
+          return
+        }
 
-    // Flatten log dari semua genUnits
-    const logs = productionUnit.genUnits
-    .flatMap((gen) =>
-        gen.infoScans.map((scan) => ({
-        code: gen.uniqCode,
-        process: gen.process,
-        status: gen.status ? "Done" : "Pending",
-        pekerja: scan.user?.name || "-",
-        role: scan.user?.role || "-",
-        datetime: scan.createdAt,
-        }))
-    )
-    .sort(
-        (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime() // ⬅️ lama → terbaru
-    )
+        const logs = productionUnit.genUnits
+          .flatMap((gen) =>
+            gen.infoScans.map((scan) => ({
+              id: scan.id,
+              code: gen.uniqCode,
+              process: gen.process,
+              status: gen.status ? "Done" : "Pending",
+              pekerja: scan.user?.name || "-",
+              role: scan.user?.role || "-",
+              datetime: scan.createdAt,
+            }))
+          )
+          .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
 
-    return NextResponse.json({ logs })
-  } catch (error) {
-    console.error("❌ Error get log scan:", error)
-    return NextResponse.json({ error: "Gagal mengambil log scan" }, { status: 500 })
-  }
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ logs })}\n\n`))
+      }
+
+      // pertama kali kirim
+      await sendLogs()
+
+      // interval polling tiap 2 detik
+      const interval = setInterval(sendLogs, 2000)
+
+      // bersihin stream kalau client disconnect
+            // cleanup kalau client disconnect
+      return () => clearInterval(interval)
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  })
 }
