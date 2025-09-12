@@ -21,6 +21,7 @@ import { toast } from "@/lib/use-toast"
 import { ArrowLeft, Plus, Search, Eye, Trash2, Loader2 } from "lucide-react"
 import type { Production, ProductionUnit } from "@/lib/type"
 import { Checkbox } from "@/components/ui/checkbox"
+// import { UnitType } from "dayjs"
 
 interface ProductionWithUnits extends Production {
   units: ProductionUnit[]
@@ -29,6 +30,17 @@ interface ProductionWithUnits extends Production {
 interface ProductionManagementProps {
   onBack: () => void
 }
+
+interface GenUnit {
+  process: string;
+  jsBarcode: string;
+}
+
+interface Unit {
+  uniqCode: string | null;
+  genUnits: GenUnit[];
+}
+
 
 export function ProductionManagement({ onBack }: ProductionManagementProps) {
   const [productions, setProductions] = useState<ProductionWithUnits[]>([])
@@ -68,6 +80,160 @@ export function ProductionManagement({ onBack }: ProductionManagementProps) {
       setLoading(false)
     }
   }
+
+const printAllBarcodes = async (productionId: number) => {
+  try {
+    const response = await fetch("/api/barcode/print", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productionId }),
+    });
+
+    if (!response.ok) {
+      toast({
+        title: "Error",
+        description: "Gagal mengambil data barcode",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { units }: { units: Unit[] } = await response.json();
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    let allContent = "";
+
+    units.forEach((unit, idx) => {
+      let content = `
+        <div class="page">
+          <div class="uniq">${unit.uniqCode ? `#${unit.uniqCode}` : "&nbsp;"}</div>
+          <div class="zigzag">
+      `;
+
+      unit.genUnits.forEach((g, i) => {
+        const sideClass = i % 2 === 0 ? "left" : "right";
+        content += `
+          <div class="${sideClass}">
+            <div class="block">
+              <div class="process">${g.process}</div>
+              <div class="barcode">${g.jsBarcode}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      content += `</div></div>`;
+
+      if (idx !== units.length - 1) {
+        content += `<div class="page-break"></div>`;
+      }
+
+      allContent += content;
+    });
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print Barcode</title>
+          <style>
+            @page {
+              size: A5 portrait;
+              margin: 5mm;
+            }
+            body {
+              margin: 0;
+              font-family: Arial, sans-serif;
+            }
+            .page {
+              width: 100%;
+              height: 100%;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: flex-start;
+              page-break-after: always;
+            }
+            .uniq {
+              font-size: 16px;
+              font-weight: bold;
+              margin-bottom: 8px;
+              text-align: center;
+              min-height: 40px; 
+              line-height: 40px;
+            }
+            .zigzag {
+              display: flex;
+              flex-direction: column;
+              width: 100%;
+              height: 100%;
+            }
+            .left,
+            .right {
+              display: flex;
+              width: 100%;
+              flex: 1;
+            }
+            .left {
+              justify-content: flex-start;
+            }
+            .right {
+              justify-content: flex-end;
+            }
+            .block {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              width: 48%;
+              height: 100%;
+            }
+            .process {
+              margin-bottom: 4px;
+              font-size: 12px;
+              font-weight: bold;
+            }
+            .barcode svg {
+              width: 100%;   
+              height: 100%;   
+              max-height: 22mm;
+            }
+            .barcode text {
+              font-size: 18px !important;
+              letter-spacing: 5px;
+              font-weight: bold;
+              margin-top: 4px;
+            }
+            .page-break {
+              page-break-before: always;
+            }
+          </style>
+        </head>
+        <body>
+          ${allContent}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+    printWindow.close();
+  } catch (error) {
+    console.error(error);
+    toast({
+      title: "Error",
+      description: "Terjadi kesalahan saat mencetak barcode",
+      variant: "destructive",
+    });
+  }
+};
+
+
+
+
+
+
 
   const handleCreateProduction = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -189,7 +355,9 @@ const handleGenerate = async () => {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">Manajemen Produksi</h1>
-            <p className="text-muted-foreground">Kelola produksi dan unit produksi</p>
+            <p className="text-muted-foreground">
+              Kelola produksi dan unit produksi
+            </p>
           </div>
         </div>
 
@@ -214,7 +382,9 @@ const handleGenerate = async () => {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Buat Produksi Baru</DialogTitle>
-                <DialogDescription>Masukkan nama penugasan dan jumlah unit yang akan diproduksi</DialogDescription>
+                <DialogDescription>
+                  Masukkan nama penugasan dan jumlah unit yang akan diproduksi
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateProduction} className="space-y-4">
                 <div className="space-y-2">
@@ -222,7 +392,9 @@ const handleGenerate = async () => {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     placeholder="Masukkan nama penugasan"
                     required
                   />
@@ -234,13 +406,19 @@ const handleGenerate = async () => {
                     type="number"
                     min="1"
                     value={formData.jumlah}
-                    onChange={(e) => setFormData({ ...formData, jumlah: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, jumlah: e.target.value })
+                    }
                     placeholder="Masukkan jumlah unit"
                     required
                   />
                 </div>
                 <div className="flex gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCreateModal(false)}
+                  >
                     Batal
                   </Button>
                   <Button type="submit" disabled={formLoading}>
@@ -268,7 +446,9 @@ const handleGenerate = async () => {
         <Card>
           <CardHeader>
             <CardTitle>Daftar Produksi</CardTitle>
-            <CardDescription>Total: {filteredProductions.length} produksi</CardDescription>
+            <CardDescription>
+              Total: {filteredProductions.length} produksi
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -285,33 +465,59 @@ const handleGenerate = async () => {
               <TableBody>
                 {filteredProductions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? "Tidak ada produksi yang ditemukan" : "Belum ada produksi"}
+                    <TableCell
+                      colSpan={6}
+                      className="text-center py-8 text-muted-foreground"
+                    >
+                      {searchTerm
+                        ? "Tidak ada produksi yang ditemukan"
+                        : "Belum ada produksi"}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredProductions.map((production, index) => (
                     <TableRow key={production.id}>
                       <TableCell>{index + 1}</TableCell>
-                      <TableCell className="font-medium">{production.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {production.name}
+                      </TableCell>
                       <TableCell>{production.jumlah}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{production.units.length} unit dibuat</Badge>
+                        <Badge variant="secondary">
+                          {production.units.length} unit dibuat
+                        </Badge>
                       </TableCell>
-                      <TableCell>{new Date(production.createdAt).toLocaleDateString("id-ID")}</TableCell>
+                      <TableCell>
+                        {new Date(production.createdAt).toLocaleDateString(
+                          "id-ID"
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setSelectedProduction(production)
-                              setShowDetailModal(true)
+                              setSelectedProduction(production);
+                              setShowDetailModal(true);
                             }}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteProduction(production.id)}>
+                          {/* <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {setSelectedProduction(production); printAllBarcodes(selectedProduction!.id);}}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button> */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              handleDeleteProduction(production.id)
+                            }
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -325,68 +531,95 @@ const handleGenerate = async () => {
         </Card>
       )}
 
-      {/* Production Detail Modal */}
-      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Detail Produksi: {selectedProduction?.name}</DialogTitle>
-            <DialogDescription>Daftar unit produksi yang telah dibuat</DialogDescription>
-          </DialogHeader>
-          {selectedProduction && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Unit</p>
-                  <p className="text-2xl font-bold">{selectedProduction.jumlah}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Unit Dibuat</p>
-                  <p className="text-2xl font-bold">{selectedProduction.units.length}</p>
-                </div>
-              </div>
+{/* Production Detail Modal */}
+<Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+  <DialogContent className="max-w-4xl">
+    <DialogHeader>
+      <DialogTitle>
+        Detail Produksi: {selectedProduction?.name}
+      </DialogTitle>
+      <DialogDescription>
+        Daftar unit produksi yang telah dibuat
+      </DialogDescription>
+    </DialogHeader>
+    {selectedProduction && (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+          <div>
+            <p className="text-sm text-muted-foreground">Total Unit</p>
+            <p className="text-2xl font-bold">{selectedProduction.jumlah}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Unit Dibuat</p>
+            <p className="text-2xl font-bold">
+              {selectedProduction.units.length}
+            </p>
+          </div>
+        </div>
 
-              <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
+        {/* ✅ Tambahkan scroll kalau unit > 5 */}
+        <div
+          className={
+            selectedProduction.units.length > 5
+              ? "max-h-64 overflow-y-auto border rounded-lg"
+              : ""
+          }
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <Checkbox
+                    checked={
+                      selectedProduction?.units.length > 0 &&
+                      selectedUnits.length ===
+                        selectedProduction.units.length
+                    }
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
+                <TableHead>No</TableHead>
+                <TableHead>Kode Unit</TableHead>
+                <TableHead>Tanggal Dibuat</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {selectedProduction.units.map((unit, index) => (
+                <TableRow key={unit.id}>
+                  <TableCell>
                     <Checkbox
-                      checked={
-                        selectedProduction?.units.length > 0 &&
-                        selectedUnits.length === selectedProduction.units.length
+                      checked={selectedUnits.includes(unit.id)}
+                      onCheckedChange={() =>
+                        toggleUnitSelection(unit.id)
                       }
-                      onCheckedChange={toggleSelectAll}
                     />
-                  </TableHead>
-                  <TableHead>No</TableHead>
-                  <TableHead>Kode Unit</TableHead>
-                  <TableHead>Tanggal Dibuat</TableHead>
+                  </TableCell>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell className="font-mono">
+                    {unit.uniqCode}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(unit.createdAt).toLocaleDateString("id-ID")}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {selectedProduction.units.map((unit, index) => (
-                  <TableRow key={unit.id}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedUnits.includes(unit.id)}
-                        onCheckedChange={() => toggleUnitSelection(unit.id)}
-                      />
-                    </TableCell>
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell className="font-mono">{unit.uniqCode}</TableCell>
-                    <TableCell>{new Date(unit.createdAt).toLocaleDateString("id-ID")}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
 
-            <div className="mt-4 flex justify-end">
-              <Button onClick={handleGenerate}>Generate</Button>
-            </div>
+        <div className="mt-4 flex justify-end">
+          <Button onClick={handleGenerate}>Generate</Button>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button onClick={() => printAllBarcodes(selectedProduction!.id)}>
+            Print Semua Barcode
+          </Button>
+        </div>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
 
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </main>
-  )
+  );
 }

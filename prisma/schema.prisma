@@ -63,21 +63,21 @@ model Production {
   @@map("productions")
 }
 
-model ProductionUnit {
-  id           Int    @id @default(autoincrement())
-  productionId Int
-  uniqCode     String @unique
+  model ProductionUnit {
+    id           Int    @id @default(autoincrement())
+    productionId Int
+    uniqCode     String @unique
 
-  // Relations
-  production Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  genUnits   GenProductionUnit[]
-  processQc  ProcessQc?
+    // Relations
+    production Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+    genUnits   GenProductionUnit[]
+    processQc  ProcessQc?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
-  @@map("production_units")
-}
+    @@map("production_units")
+  }
 
 model GenProductionUnit {
   id               Int         @id @default(autoincrement())

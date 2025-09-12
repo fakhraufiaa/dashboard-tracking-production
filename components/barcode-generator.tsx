@@ -175,7 +175,7 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
           <style>
             @page {
               size: 80mm 150mm; /* ukuran label bandara */
-              margin: 5mm;
+              margin 1mm;
             }
             body {
               margin: 0;

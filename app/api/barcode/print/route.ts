@@ -1,33 +1,31 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+// /api/barcode/print/route.ts
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-
-    const { unitIds } = await request.json()
+    const { productionId, unitIds } = await req.json();
 
     const units = await prisma.productionUnit.findMany({
       where: {
-        ...(unitIds?.length ? { id: { in: unitIds } } : {}), // kalau kosong ambil semua
+        ...(productionId ? { productionId } : {}),
+        ...(unitIds?.length ? { id: { in: unitIds } } : {}),
       },
       include: {
         genUnits: {
-          select: {
-            id: true,
-            uniqCode: true,
-            process: true,
-            jsBarcode: true,
-          },
+          select: { id: true, uniqCode: true, process: true, jsBarcode: true },
           orderBy: { id: "asc" },
         },
       },
       orderBy: { id: "asc" },
-    })
+    });
 
-    return NextResponse.json({ units })
-  } catch {
-    console.error()
-    return NextResponse.json({ error: "Terjadi kesalahan server" }, { status: 500 })
+    return NextResponse.json({ units });
+  } catch (error) {
+    console.error("Error fetching units:", error);
+    return NextResponse.json(
+      { error: "Terjadi kesalahan server" },
+      { status: 500 }
+    );
   }
 }
