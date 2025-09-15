@@ -45,11 +45,13 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
     }
   }, [])
 
+
 const startScanning = async () => {
   try {
     setCameraError(null)
     setIsScanning(true)
 
+    // ✅ Fokus hanya ke CODE_128 biar cepat
     const hints = new Map()
     hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
 
@@ -66,13 +68,24 @@ const startScanning = async () => {
       ? videoInputDevices[videoInputDevices.length - 1].deviceId
       : videoInputDevices[0].deviceId
 
-    codeReaderRef.current.decodeFromVideoDevice(
-      deviceId,
+    // ✅ Set constraints untuk resolusi kamera
+    const constraints = {
+      video: {
+        deviceId: { exact: deviceId },
+        width: { ideal: 1280 },   // bisa coba 1920
+        height: { ideal: 720 },   // bisa coba 1080
+        facingMode: "environment", // biar pakai kamera belakang
+      },
+    }
+
+    codeReaderRef.current.decodeFromConstraints(
+      constraints,
       videoRef.current!,
       (result, error) => {
         if (result) {
           console.log("📷 RAW hasil scan:", result.getText())
           handleScanSuccess(result.getText())
+          stopScanning() // auto stop biar ga scan berkali-kali
         }
         if (error && !(error.name === "NotFoundException")) {
           console.error("Scan error:", error)
