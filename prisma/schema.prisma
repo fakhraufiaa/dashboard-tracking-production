@@ -82,7 +82,7 @@ model Production {
 model GenProductionUnit {
   id               Int         @id @default(autoincrement())
   productionUnitId Int
-  uniqCode         String      @unique
+  uniqCode         String      
   process          ProcessType
   jsBarcode        String      // SVG string
   status           Boolean     @default(false)
@@ -95,6 +95,7 @@ model GenProductionUnit {
   updatedAt DateTime @updatedAt
 
   @@map("gen_production_units")
+  @@unique([productionUnitId, uniqCode])
 }
 
 model InfoScanProduction {

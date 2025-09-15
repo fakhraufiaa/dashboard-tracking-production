@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     for (const unit of units) {
       for (const proc of Object.values(ProcessType)) {
-        const uniqCode = `${unit.uniqCode}-${proc}-${dateStr}`
+        const uniqCode = `${proc}-${dateStr}`
 
         // generate SVG
        const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {

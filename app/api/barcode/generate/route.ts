@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       // buat SVG
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 
-      const fullCode = `${uniqCode}-${proc}-${dateStr}`;
+      const fullCode = `${proc}-${dateStr}`;
 
       JsBarcode(svg, fullCode, {
         format: "CODE128",
