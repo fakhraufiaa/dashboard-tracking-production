@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!genUnit) {
-      return NextResponse.json({ error: "GenProductionUnit tidak ditemukan" }, { status: 404 })
+      return NextResponse.json({ error: "UniqCode tidak ditemukan" }, { status: 404 })
     }
 
     // ✅ Update status ke true (jika belum)

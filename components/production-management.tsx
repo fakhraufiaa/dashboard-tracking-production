@@ -18,7 +18,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/lib/use-toast"
-import { ArrowLeft, Plus, Search, Eye, Trash2, Loader2 } from "lucide-react"
+import { ArrowLeft, Plus, Search, Eye, Trash2, Loader2, Barcode } from "lucide-react"
 import type { Production, ProductionUnit } from "@/lib/type"
 import { Checkbox } from "@/components/ui/checkbox"
 // import { UnitType } from "dayjs"
@@ -139,7 +139,7 @@ const printAllBarcodes = async (productionId: number) => {
           <title>Print Barcode</title>
           <style>
             @page {
-              size: A5 portrait;
+              size: A6 portrait;
               margin: 5mm;
             }
             body {
@@ -190,14 +190,13 @@ const printAllBarcodes = async (productionId: number) => {
               height: 100%;
             }
             .process {
-              margin-bottom: 4px;
-              font-size: 12px;
+              font-size: 6px;
               font-weight: bold;
             }
             .barcode svg {
               width: 100%;   
               height: 100%;   
-              max-height: 22mm;
+              max-height: 18mm;
             }
             .barcode text {
               font-size: 18px !important;
@@ -450,7 +449,7 @@ const handleGenerate = async () => {
               Total: {filteredProductions.length} produksi
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent> 
             <Table>
               <TableHeader>
                 <TableRow>

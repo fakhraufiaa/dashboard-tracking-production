@@ -270,8 +270,8 @@ export function UserManagement({ onBack }: UserManagementProps) {
           </CardTitle>
           <CardDescription>Kelola akses pengguna sistem</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="max-w-5xl">
+          <div className="space-y-4 max-h-[300px] overflow-y-auto">
             {users.map((user) => (
               <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex items-center gap-4">

@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
 
     for (const unit of units) {
       for (const proc of Object.values(ProcessType)) {
-        const uniqCode = `${unit.uniqCode}-${proc}-${dateStr}`
+        const [prodCode, unitCode] = unit.uniqCode.split("-")
+        const baseCode = `${prodCode.slice(-2)}${unitCode}`
+        const uniqCode = `${baseCode}-${proc}-${dayjs().format("DDMM")}`
 
         // generate SVG
        const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
@@ -45,8 +47,7 @@ export async function POST(req: NextRequest) {
          xmlDocument: document, // ⬅️ ini penting biar ga nyari global document
          format: "CODE128",
          displayValue: true,
-          width: 2,
-         height: 50,
+         height: 40,
          fontSize: 18,
        });
        const svgStr = svg.outerHTML;

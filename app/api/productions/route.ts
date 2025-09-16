@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       // Create production units
       const units = []
       for (let i = 1; i <= Number.parseInt(jumlah); i++) {
-        const uniqCode = `WIII${String(newProduction.id).padStart(3, "0")}-${String(i).padStart(4, "0")}`
+        const uniqCode = `WP3${String(newProduction.id).padStart(3, "0")}-${String(i).padStart(4, "0")}`
         units.push({
           productionId: newProduction.id,
           uniqCode,

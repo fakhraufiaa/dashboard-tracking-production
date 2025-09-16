@@ -3,6 +3,7 @@ import { $Enums, PrismaClient, ProcessType } from "@prisma/client";
 import JsBarcode from "jsbarcode";
 import { JSDOM } from "jsdom";
 import dayjs from "dayjs";
+import { Barcode } from "lucide-react";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,10 @@ const processTypes: ProcessType[] = [
 
 export async function POST(req: NextRequest) {
   try {
+    
     const { uniqCode } = await req.json();
+    const [prodCode, unitCode] = uniqCode.split("-")
+    const baseCode = `${prodCode.slice(-2)}${unitCode}`
 
     if (!uniqCode) {
       return NextResponse.json(
@@ -36,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     const productionUnitId = productionUnit.id;
-    const dateStr = dayjs().format("DDMMYYYY");
+    const dateStr = dayjs().format("DDMM");
     const genData: { uniqCode: string; process: $Enums.ProcessType; jsBarcode: string; productionUnitId: number; }[] = [];
 
     for (const proc of processTypes) {
@@ -49,13 +53,12 @@ export async function POST(req: NextRequest) {
       // buat SVG
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 
-      const fullCode = `${uniqCode}-${proc}-${dateStr}`;
+      const fullCode = `${baseCode}-${proc}-${dateStr}`;
 
       JsBarcode(svg, fullCode, {
         format: "CODE128",
         displayValue: true,
-        width: 2,
-        height: 50,
+        height: 40,
         fontSize: 18,
         xmlDocument: document
       });

@@ -227,13 +227,14 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
         <CardHeader>
           <CardTitle>Daftar ProcessUnit</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="max-w-5xl overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <Table>
+            <div className="max-h-[300px] overflow-y-auto"> 
+              <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>No</TableHead>
@@ -274,6 +275,8 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
               })}
             </TableBody>
           </Table>
+            </div>
+            
           )}     
         </CardContent>
       </Card>

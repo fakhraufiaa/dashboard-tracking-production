@@ -150,15 +150,15 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
   const printWindow = window.open("", "_blank")
   if (printWindow) {
     let content = `
-      <div class="label">
-        <div class="uniq">#${uniqCode}</div>
+      <div class="page">
+        <div class="uniq">${uniqCode ? `#${uniqCode}` : "&nbsp;"}</div>
     `
 
     PROCESSES.forEach((process) => {
       const g = genUnits.find((gu: { process: string }) => gu.process === process)
       if (g) {
         content += `
-          <div class="block px-4 py-2 border-b">
+          <div class="block">
             <div class="process">${g.process}</div>
             <div class="barcode">${g.jsBarcode}</div>
           </div>
@@ -166,7 +166,7 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
       }
     })
 
-    content += `</div>`
+    content += `</div>` // tutup .page
 
     printWindow.document.write(`
       <html>
@@ -174,39 +174,47 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
           <title>Print Barcode</title>
           <style>
             @page {
-              size: 80mm 150mm; /* ukuran label bandara */
-              margin 1mm;
+              size: A6 portrait;
+              margin: 5mm;
             }
             body {
               margin: 0;
               font-family: Arial, sans-serif;
             }
-            .label {
+            .page {
               width: 100%;
               height: 100%;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: flex-start;
+              page-break-after: always;
             }
             .uniq {
-              font-size: 22px;
-              font-weight: bold;
-              margin-bottom: 10px;
-              text-align: center;
-            }
-            .block {
-              text-align: center;
-              margin-bottom: 12px;
-            }
-            .process {
               font-size: 16px;
               font-weight: bold;
+              margin-bottom: 8px;
+              text-align: center;
+              min-height: 40px;
+              line-height: 40px;
+            }
+            .block {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              margin-bottom: 10px;
+            }
+            .process {
               margin-bottom: 4px;
+              font-size: 12px;
+              font-weight: bold;
             }
             .barcode svg {
-              width: 100%;
-              height: 60px;
+              width: 100%;   
+              height: auto;   
+              max-height: 20mm;
             }
             .barcode text {
               font-size: 18px !important;
@@ -220,12 +228,16 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
           ${content}
         </body>
       </html>
-    `);
+    `)
+
     printWindow.document.close()
     printWindow.print()
     printWindow.close()
   }
 }
+
+
+
 
 
 
@@ -267,6 +279,7 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
                 Masukkan uniqCode untuk membuat semua barcode proses
               </DialogDescription>
             </DialogHeader>
+
             <form onSubmit={handleGenerate} className="space-y-4">
               <Input
                 placeholder="Masukkan uniqCode"
@@ -304,13 +317,14 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
             Menampilkan semua unit. Barcode bisa di-print/download setelah digenerate.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="max-w-5xl">
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
-            <Table>
+            <div className="max-h-[300px] overflow-y-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>No</TableHead>
@@ -360,6 +374,7 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
                 )}
               </TableBody>
             </Table>
+            </div>     
           )}
         </CardContent>
       </Card>
