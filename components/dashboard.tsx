@@ -10,11 +10,17 @@ import { ProcessLogging } from "./process-logging"
 import { BarcodeScanner } from "./barcode-scanner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Factory, Users, QrCode, ClipboardCheck } from "lucide-react"
+import { Factory, Users, QrCode, ClipboardCheck, ChartColumn } from "lucide-react"
+import LinesAssy from "./lines-assy"
+import LinesWiring from "./lines-wiring"
+import LinesQC from "./lines-qc"
+import LinesPacking from "./lines-pack"
+import { useLinesData } from "@/lib/useLinesData"
 
 export function Dashboard() {
   const { user } = useAuth()
   const [activePage, setActivePage] = useState<string | null>(null)
+  const { data, loading } = useLinesData()
 
   const getWelcomeMessage = () => {
     const hour = new Date().getHours()
@@ -31,8 +37,9 @@ export function Dashboard() {
           { title: "Manajemen Produksi", desc: "Kelola produksi dan unit", icon: Factory, page: "production" },
           { title: "Manajemen User", desc: "Kelola pengguna sistem", icon: Users, page: "users" },
           { title: "Generate Barcode", desc: "Buat barcode produksi", icon: QrCode, page: "barcode" },
-          { title: "Process Logging", desc: "Monitor proses QC", icon: ClipboardCheck, page: "logging" },
+          { title: "Process Logging", desc: "Monitor proses", icon: ClipboardCheck, page: "logging" },
           { title: "Scan Barcode", desc: "Scan barcode produksi", icon: QrCode, page: "scan" },
+
         ]
       case "QC":
         return [
@@ -82,12 +89,41 @@ export function Dashboard() {
           <h1 className="text-3xl font-bold text-balance">
             {getWelcomeMessage()}, {user?.name}!
           </h1>
-          <p className="text-muted-foreground mt-2">Sistem Manajemen Produksi dengan Barcode Tracking</p>
+          <p className="text-muted-foreground mt-2">
+            Sistem Manajemen Produksi dengan Barcode Tracking
+          </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <LinesAssy 
+                  count={data?.ASSY?.units ?? 0} 
+                  amount={data?.ASSY?.personnel ?? 0} 
+                />
+                <LinesWiring 
+                  count={data?.WIRING?.units ?? 0} 
+                  amount={data?.WIRING?.personnel ?? 0} 
+                />
+                <LinesQC
+                  count={data?.QC?.units ?? 0} 
+                  amount={data?.QC?.personnel ?? 0} 
+                />
+                <LinesPacking
+                  count={data?.PACK?.units ?? 0} 
+                  amount={data?.PACK?.personnel ?? 0} 
+                />
+              </div>      
+            </CardContent>
+          </Card>
+          
+
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">
           {getRoleAccess().map((item, index) => {
-            const Icon = item.icon
+            const Icon = item.icon;
             return (
               <Card
                 key={index}
@@ -106,7 +142,7 @@ export function Dashboard() {
                   </div>
                 </CardHeader>
               </Card>
-            )
+            );
           })}
         </div>
 
@@ -114,18 +150,22 @@ export function Dashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Status Sistem</CardTitle>
-              <CardDescription>Informasi akses berdasarkan role</CardDescription>
+              <CardDescription>
+                Informasi akses berdasarkan role
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
                 <span>Role aktif:</span>
                 <Badge variant="secondary">{user?.role}</Badge>
-                <span className="text-sm text-muted-foreground">• Kode: {user?.uniqCode}</span>
+                <span className="text-sm text-muted-foreground">
+                  • Kode: {user?.uniqCode}
+                </span>
               </div>
             </CardContent>
           </Card>
         </div>
       </main>
     </div>
-  )
+  );
 }

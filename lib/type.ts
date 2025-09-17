@@ -1,4 +1,17 @@
 // Enums
+// lib/type.ts
+export interface LineGroup {
+  units: number
+  personnel: number
+}
+
+export interface LinesData {
+  ASSY: LineGroup
+  WIRING: LineGroup
+  QC: LineGroup
+  PACK: LineGroup
+}
+
 export enum Role {
   ADMIN = "ADMIN",
   OPT = "OPT",
