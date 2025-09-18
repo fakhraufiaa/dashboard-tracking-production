@@ -1,5 +1,15 @@
 "use client"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -33,6 +43,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [isBackCamera, setIsBackCamera] = useState(true) 
+  const [pendingBarcode, setPendingBarcode] = useState<ScanResult | null>(null)
   // const lastScanRef = useRef<string | null>(null)
   const scanCooldownRef = useRef<boolean>(false);
 
@@ -45,62 +56,57 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
     }
   }, [])
 
+  const startScanning = async () => {
+    try {
+      setCameraError(null)
+      setIsScanning(true)
 
-const startScanning = async () => {
-  try {
-    setCameraError(null)
-    setIsScanning(true)
+      // ✅ Fokus hanya ke CODE_128 biar cepat
+      const hints = new Map()
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
 
-    // ✅ Fokus hanya ke CODE_128 biar cepat
-    const hints = new Map()
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
-
-    if (!codeReaderRef.current) {
-      codeReaderRef.current = new BrowserMultiFormatReader(hints)
-    }
-
-    const videoInputDevices = await codeReaderRef.current.listVideoInputDevices()
-    setDevices(videoInputDevices)
-
-    if (videoInputDevices.length === 0) throw new Error("Tidak ada kamera tersedia")
-
-    const deviceId = isBackCamera
-      ? videoInputDevices[videoInputDevices.length - 1].deviceId
-      : videoInputDevices[0].deviceId
-
-    // ✅ Set constraints untuk resolusi kamera
-    const constraints = {
-      video: {
-        deviceId: { exact: deviceId },
-        width: { ideal: 1280 },   // bisa coba 1920
-        height: { ideal: 720 },   // bisa coba 1080
-        facingMode: "environment", // biar pakai kamera belakang
-      },
-    }
-
-    codeReaderRef.current.decodeFromConstraints(
-      constraints,
-      videoRef.current!,
-      (result, error) => {
-        if (result) {
-          console.log("📷 RAW hasil scan:", result.getText())
-          handleScanSuccess(result.getText())
-          stopScanning() // auto stop biar ga scan berkali-kali
-        }
-        if (error && !(error.name === "NotFoundException")) {
-          console.error("Scan error:", error)
-        }
+      if (!codeReaderRef.current) {
+        codeReaderRef.current = new BrowserMultiFormatReader(hints)
       }
-    )
-  } catch (error) {
-    console.error("Camera error:", error)
-    setCameraError(error instanceof Error ? error.message : "Gagal mengakses kamera")
-    setIsScanning(false)
+
+      const videoInputDevices = await codeReaderRef.current.listVideoInputDevices()
+      setDevices(videoInputDevices)
+
+      if (videoInputDevices.length === 0) throw new Error("Tidak ada kamera tersedia")
+
+      const deviceId = isBackCamera
+        ? videoInputDevices[videoInputDevices.length - 1].deviceId
+        : videoInputDevices[0].deviceId
+
+      // ✅ Set constraints untuk resolusi kamera
+      const constraints = {
+        video: {
+          deviceId: { exact: deviceId },
+          width: { ideal: 1280 },   // bisa coba 1920
+          height: { ideal: 720 },   // bisa coba 1080
+          facingMode: "environment", // biar pakai kamera belakang
+        },
+      }
+
+      codeReaderRef.current.decodeFromConstraints(
+        constraints,
+        videoRef.current!,
+        (result, error) => {
+          if (result) {
+            console.log("📷 RAW hasil scan:", result.getText())
+            handleScanSuccess(result.getText())
+          }
+          if (error && !(error.name === "NotFoundException")) {
+            console.error("Scan error:", error)
+          }
+        }
+      )
+    } catch (error) {
+      console.error("Camera error:", error)
+      setCameraError(error instanceof Error ? error.message : "Gagal mengakses kamera")
+      setIsScanning(false)
+    }
   }
-}
-
-
-
   const stopScanning = () => {
     if (codeReaderRef.current) {
       codeReaderRef.current.reset()
@@ -114,44 +120,73 @@ const startScanning = async () => {
 
 const handleScanSuccess = async (barcodeText: string) => {
   const cleanBarcode = barcodeText.trim()
-
-  // 🚨 Cegah duplikat selama 2 detik
   if (scanCooldownRef.current) return
   scanCooldownRef.current = true
   setTimeout(() => { scanCooldownRef.current = false }, 2000)
 
   console.log("📷 Scan:", cleanBarcode)
 
-  setIsLoading(true)
   try {
-    const response = await fetch("/api/barcode/scan", {
+    // 🔎 preview dulu data barcode (tanpa insert ke DB)
+    const response = await fetch("/api/barcode/scan/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ barcodeText: cleanBarcode }),
     })
-
     const data = await response.json()
     if (response.ok) {
-      setScanResult(data)
-      toast({ title: "Berhasil", description: "Barcode berhasil dipindai" })
-
-      stopScanning() // ✅ bisa stop kalau sekali scan cukup
+      // simpan ke pending untuk konfirmasi
+      setPendingBarcode(data)
+      stopScanning()
     } else {
       toast({
         title: "Error",
-        description: data.error || "Gagal memproses barcode",
+        description: data.error || "Barcode tidak valid",
         variant: "destructive",
       })
     }
   } catch {
     toast({
       title: "Error",
-      description: "Terjadi kesalahan saat memproses barcode",
+      description: "Gagal memproses barcode",
+      variant: "destructive",
+    })
+  }
+}
+
+const confirmScan = async () => {
+  if (!pendingBarcode) return
+  setIsLoading(true)
+
+  try {
+    const response = await fetch("/api/barcode/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ barcodeText: pendingBarcode.uniqCode }),
+    })
+
+    const data = await response.json()
+    if (response.ok) {
+      setScanResult(data)
+      toast({ title: "Berhasil", description: "Barcode berhasil dipindai" })
+      stopScanning()
+    } else {
+      toast({
+        title: "Error",
+        description: data.error || "Gagal menyimpan scan",
+        variant: "destructive",
+      })
+    }
+  } catch {
+    toast({
+      title: "Error",
+      description: "Terjadi kesalahan saat menyimpan scan",
       variant: "destructive",
     })
   } finally {
     setIsLoading(false)
+    setPendingBarcode(null)
   }
 }
 
@@ -296,6 +331,37 @@ const handleScanSuccess = async (barcodeText: string) => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Konfirmasi Scan */}
+        <AlertDialog
+          open={!!pendingBarcode}
+          onOpenChange={() => setPendingBarcode(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Konfirmasi Scan</AlertDialogTitle>
+              <AlertDialogDescription>
+                Apakah Anda yakin ingin scan proses{" "}
+                <span className="font-bold text-blue-600">
+                  {pendingBarcode?.process}
+                </span>
+                ?
+                <br />
+                <span className="text-sm text-muted-foreground">
+                  Kode: {pendingBarcode?.uniqCode}
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isLoading}>Batal</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmScan} disabled={isLoading}>
+                {isLoading ? "Memproses..." : "Lanjutkan"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+       
 
         {/* Result */}
         {scanResult && (
