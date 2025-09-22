@@ -30,6 +30,11 @@ interface ProcessUnit {
     uji_kabel: boolean
     labelling: boolean
   }
+  genUnits?: {
+    id: number
+    process: string
+    status: boolean
+  }[]
   processUnitProductions?: {
     id: number
     process: string
@@ -58,6 +63,26 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   const [scanLogs, setScanLogs] = useState<ScanLog[]>([])
 
   const checklistFields = ["uji_input", "uji_output", "uji_ac", "uji_kabel", "labelling"]
+ 
+  const getDetailLogVariant = (unit: ProcessUnit) => {
+  // ✅ kalau ada genUnits & salah satu process status true
+  if (unit.genUnits && unit.genUnits.some(p => p.status)) {
+    // kalau semua process selesai → hijau
+    if (unit.genUnits.every(p => p.status)) return "green"
+    // kalau sebagian → biru
+    return "yellow"
+  }
+
+  // fallback ke QC checklist kalau genUnits kosong
+  const total = checklistFields.length
+  const done = checklistFields.filter((f) => unit.processQc?.[f as keyof typeof unit.processQc]).length
+
+  if (done === total) return "green"
+  if (done > 0) return "yellow"
+  return "white"
+}
+
+
 
   // Fetch ProcessUnit
   const fetchUnits = async () => {
@@ -82,48 +107,48 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   }, [])
 
 
-  const fetchScanLogs = async (uniqCode: string) => {
-    setLoading(true)
+  // ✅ Hapus fetchScanLogs lama, ganti useEffect khusus SSE
+useEffect(() => {
+  if (!detailUnit) return
 
-    try {
-      const es = new EventSource(`/api/barcode/scan/log?uniqCode=${uniqCode}`)
+  setLoading(true)
+  const es = new EventSource(`/api/barcode/scan/log?uniqCode=${detailUnit.uniqCode}`)
 
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (data.logs) {
-            setScanLogs(data.logs)
-            setLoading(false)
-          }
-        } catch (e) {
-          console.error("❌ Error parsing SSE:", e)
-        }
-      }
-
-      es.onerror = (err) => {
-        console.error("❌ SSE error:", err)
-        es.close()
-        setLoading(false)
-        toast({
-          title: "Error",
-          description: "Gagal terhubung ke stream log scan",
-          variant: "destructive",
-        })
-      }
-
-      // simpan EventSource biar bisa ditutup kalau perlu
-      return () => {
-        es.close()
-      }
-    } catch {
-      setLoading(false)
-      toast({
-        title: "Error",
-        description: "Gagal memuat log scan",
-        variant: "destructive",
-      })
+  es.onmessage = (event) => {
+  try {
+    const data = JSON.parse(event.data)
+    if (data.logs) {
+      setScanLogs(data.logs)
     }
+    if (data.summary) {
+      // kalau memang mau dipakai nanti, bisa tambahkan log lain
+      console.log("QC Summary:", data.summary);
+    }
+
+    setLoading(false)
+  } catch (e) {
+    console.error("❌ Error parsing SSE:", e)
   }
+}
+
+
+  es.onerror = (err) => {
+    console.error("❌ SSE error:", err)
+    es.close()
+    setLoading(false)
+    toast({
+      title: "Error",
+      description: "Gagal terhubung ke stream log scan",
+      variant: "destructive",
+    })
+  }
+
+  // ✅ cleanup saat modal ditutup
+  return () => {
+    es.close()
+    setScanLogs([]) // reset biar bersih
+  }
+}, [detailUnit])
 
 
   const filteredUnits = units.filter((u) =>
@@ -202,6 +227,8 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
     setSelectAll(Object.values(newQc).every((v) => v === true))
   }
 
+
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -210,7 +237,9 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
           Kembali ke Dashboard
         </Button>
         <h1 className="text-3xl font-bold text-balance">Process Log</h1>
-        <p className="text-muted-foreground mt-2">Ringkasan QC per Production Unit</p>
+        <p className="text-muted-foreground mt-2">
+          Ringkasan QC per Production Unit
+        </p>
       </div>
 
       {/* Search */}
@@ -225,59 +254,93 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
       {/* Table Ringkasan ProcessUnit */}
       <Card>
         <CardHeader>
-          <CardTitle>Daftar ProcessUnit</CardTitle>
+          <CardTitle>
+            <div className="flex justify-between items-center">
+              <p>List ProcessUnit</p>
+              <p className="opacity-50">status</p>
+            </div>
+          </CardTitle>
+
+          <div className="flex justify-end items-center gap-6 mb-4">
+            {/* Merah - Kosong */}
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-red-500"></span>
+              <span className="text-sm text-gray-700">Empty</span>
+            </div>
+
+            {/* Kuning - Proses */}
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
+              <span className="text-sm text-gray-700">On Proses</span>
+            </div>
+
+            {/* Hijau - Selesai */}
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-green-500"></span>
+              <span className="text-sm text-gray-700">Done</span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="max-w-5xl overflow-x-auto">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="max-h-[300px] overflow-y-auto"> 
+            <div className="max-h-[300px] overflow-y-auto">
               <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>No</TableHead>
-                <TableHead>Code (Unit)</TableHead>
-                <TableHead>Process QC</TableHead>
-                <TableHead>Status QC</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUnits.map((unit, idx) => {
-                const { done, total } = getCompletionCount(unit)
-                return (
-                  <TableRow key={unit.id}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell>{unit.uniqCode}</TableCell>
-                    <TableCell>{done}/{total} ✅</TableCell>
-                    <TableCell>{getQcStatus(unit)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => setSelectedUnit(unit)}>
-                          <Eye className="w-4 h-4 mr-1" /> Edit QC
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setDetailUnit(unit)
-                            fetchScanLogs(unit.uniqCode)
-                          }}
-                        >
-                          Detail Log
-                        </Button>
-                      </div>
-                    </TableCell>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No</TableHead>
+                    <TableHead>Code (Unit)</TableHead>
+                    <TableHead>Process QC</TableHead>
+                    <TableHead>Status QC</TableHead>
+                    <TableHead>Action</TableHead>
                   </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredUnits.map((unit, idx) => {
+                    const { done, total } = getCompletionCount(unit);
+                    return (
+                      <TableRow key={unit.id}>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell>{unit.uniqCode}</TableCell>
+                        <TableCell>
+                          {done}/{total} ✅
+                        </TableCell>
+                        <TableCell>{getQcStatus(unit)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => setSelectedUnit(unit)}
+                            >
+                              <Eye className="w-4 h-4 mr-1" /> Edit QC
+                            </Button>
+                            <Button
+                              size="sm"
+                              className={
+                                getDetailLogVariant(unit) === "green"
+                                  ? "bg-green-600 text-white hover:bg-green-700"
+                                  : getDetailLogVariant(unit) === "yellow"
+                                  ? "bg-yellow-500 text-white hover:bg-yellow-600"
+                                  : "bg-red-500 text-white border hover:bg-red-600"
+                              }
+                              onClick={() => {
+                                setDetailUnit(unit);
+                              }}
+                            >
+                              Detail
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
-            
-          )}     
+          )}
         </CardContent>
       </Card>
 
@@ -297,7 +360,11 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
               {checklistFields.map((field) => (
                 <div key={field} className="flex items-center gap-2">
                   <Checkbox
-                    checked={Boolean(selectedUnit.processQc?.[field as keyof typeof selectedUnit.processQc])}
+                    checked={Boolean(
+                      selectedUnit.processQc?.[
+                        field as keyof typeof selectedUnit.processQc
+                      ]
+                    )}
                     onCheckedChange={() => toggleItem(field)}
                   />
                   <span className="capitalize">{field.replace("_", " ")}</span>
@@ -306,7 +373,9 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
             </div>
 
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setSelectedUnit(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setSelectedUnit(null)}>
+                Cancel
+              </Button>
               <Button
                 onClick={() =>
                   handleSaveQc(
@@ -314,7 +383,11 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
                     checklistFields.reduce(
                       (acc, field) => ({
                         ...acc,
-                        [field]: Boolean(selectedUnit.processQc?.[field as keyof typeof selectedUnit.processQc]),
+                        [field]: Boolean(
+                          selectedUnit.processQc?.[
+                            field as keyof typeof selectedUnit.processQc
+                          ]
+                        ),
                       }),
                       {} as Record<string, boolean>
                     )
@@ -363,12 +436,17 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
                             <TableCell>{log.process}</TableCell>
                             <TableCell>{log.pekerja}</TableCell>
                             <TableCell>{log.role}</TableCell>
-                            <TableCell>{new Date(log.datetime).toLocaleString()}</TableCell>
+                            <TableCell>
+                              {new Date(log.datetime).toLocaleString()}
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow key={0}>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                          <TableCell
+                            colSpan={6}
+                            className="text-center text-muted-foreground"
+                          >
                             Belum ada log scan
                           </TableCell>
                         </TableRow>
@@ -385,8 +463,6 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
           </DialogContent>
         </Dialog>
       )}
-
-
     </div>
-  )
+  );
 }

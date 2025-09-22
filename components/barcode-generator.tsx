@@ -159,7 +159,6 @@ const printBarcode = async (unitId: number, uniqCode: string) => {
       if (g) {
         content += `
           <div class="block">
-            <div class="process">${g.process}</div>
             <div class="barcode">${g.jsBarcode}</div>
           </div>
         `

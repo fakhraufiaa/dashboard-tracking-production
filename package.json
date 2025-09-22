@@ -8,7 +8,8 @@
     "build": "prisma migrate deploy && next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
@@ -34,6 +35,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.18",
+    "geist": "^1.5.1",
     "jose": "^6.1.0",
     "jsbarcode": "^3.12.1",
     "jsdom": "^26.1.0",
