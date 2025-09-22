@@ -18,6 +18,7 @@ interface ProcessLoggingProps {
 
 }
 
+
 interface ProcessUnit {
   id: number
   uniqCode: string
@@ -63,23 +64,25 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   const [scanLogs, setScanLogs] = useState<ScanLog[]>([])
 
   const checklistFields = ["uji_input", "uji_output", "uji_ac", "uji_kabel", "labelling"]
- 
-  const getDetailLogVariant = (unit: ProcessUnit) => {
-  // ✅ kalau ada genUnits & salah satu process status true
-  if (unit.genUnits && unit.genUnits.some(p => p.status)) {
-    // kalau semua process selesai → hijau
-    if (unit.genUnits.every(p => p.status)) return "green"
-    // kalau sebagian → biru
-    return "yellow"
-  }
+  
+  function getGeneralStatus(unit: ProcessUnit): "red" | "yellow" | "green" {
+  const allProcesses = ["INV", "SCC", "BATT", "PD", "PB", "WD", "WB", "QC", "PACK"];
 
-  // fallback ke QC checklist kalau genUnits kosong
-  const total = checklistFields.length
-  const done = checklistFields.filter((f) => unit.processQc?.[f as keyof typeof unit.processQc]).length
+  // ❌ jika genUnits kosong atau tidak ada, langsung merah
+  if (!unit.genUnits || unit.genUnits.length === 0) return "red";
 
-  if (done === total) return "green"
-  if (done > 0) return "yellow"
-  return "white"
+  const doneProcesses = unit.genUnits
+    .filter((g) => g.status)
+    .map((g) => g.process);
+
+  // ✅ semua done
+  if (allProcesses.every((p) => doneProcesses.includes(p))) return "green";
+
+  // ⚠️ sebagian done
+  if (doneProcesses.length > 0) return "yellow";
+
+  // ❌ jika semua status false → merah
+  return "red";
 }
 
 
@@ -90,7 +93,11 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
     try {
       const res = await fetch("/api/qc/process-qc")
       const data = await res.json()
-      setUnits(data.data)
+      setUnits(data.data.map((u: ProcessUnit) => ({
+         ...u,
+        genUnits: u.genUnits ?? [],
+      }))
+    )
     } catch {
       toast({
         title: "Error",
@@ -117,19 +124,43 @@ useEffect(() => {
   es.onmessage = (event) => {
   try {
     const data = JSON.parse(event.data)
-    if (data.logs) {
+    if (data.logs && detailUnit) {
+      // update scanLogs
       setScanLogs(data.logs)
+
+      // mapping logs ke genUnits dengan status boolean
+      const updatedGenUnits = data.logs.map((log: any) => ({
+        id: log.id,
+        process: log.process,
+        status: log.status === "Done",
+      }))
+
+      // update units di state
+      setUnits((prev) =>
+        prev.map((u) =>
+          u.id === detailUnit.id
+            ? {
+                ...u,
+                genUnits: updatedGenUnits,
+                generalStatus: getGeneralStatus({ ...u, genUnits: updatedGenUnits }),
+              }
+            : u
+        )
+      )
     }
+
     if (data.summary) {
-      // kalau memang mau dipakai nanti, bisa tambahkan log lain
-      console.log("QC Summary:", data.summary);
+      console.log("QC Summary:", data.summary)
     }
 
     setLoading(false)
   } catch (e) {
     console.error("❌ Error parsing SSE:", e)
+    setLoading(false)
   }
 }
+
+
 
 
   es.onerror = (err) => {
@@ -320,9 +351,9 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
                             <Button
                               size="sm"
                               className={
-                                getDetailLogVariant(unit) === "green"
+                                getGeneralStatus(unit) === "green"
                                   ? "bg-green-600 text-white hover:bg-green-700"
-                                  : getDetailLogVariant(unit) === "yellow"
+                                  : getGeneralStatus(unit) === "yellow"
                                   ? "bg-yellow-500 text-white hover:bg-yellow-600"
                                   : "bg-red-500 text-white border hover:bg-red-600"
                               }

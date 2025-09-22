@@ -109,18 +109,13 @@ const printAllBarcodes = async (productionId: number) => {
       let content = `
         <div class="page">
           <div class="uniq">${unit.uniqCode ? `#${unit.uniqCode}` : "&nbsp;"}</div>
-          <div class="zigzag">
       `;
 
       unit.genUnits.forEach((g, i) => {
-        const sideClass = i % 2 === 0 ? "left" : "right";
         content += `
-          <div class="${sideClass}">
             <div class="block">
-              <div class="process">${g.process}</div>
               <div class="barcode">${g.jsBarcode}</div>
             </div>
-          </div>
         `;
       });
 
@@ -147,7 +142,7 @@ const printAllBarcodes = async (productionId: number) => {
               font-family: Arial, sans-serif;
             }
             .page {
-              width: 100%;
+               width: 100%;
               height: 100%;
               display: flex;
               flex-direction: column;
@@ -186,8 +181,9 @@ const printAllBarcodes = async (productionId: number) => {
               flex-direction: column;
               align-items: center;
               justify-content: center;
-              width: 48%;
+              width: 50%;
               height: 100%;
+              margin-bottom: 8px;
             }
             .process {
               font-size: 6px;
@@ -196,7 +192,7 @@ const printAllBarcodes = async (productionId: number) => {
             .barcode svg {
               width: 100%;   
               height: 100%;   
-              max-height: 18mm;
+              max-height: 20mm;
             }
             .barcode text {
               font-size: 18px !important;

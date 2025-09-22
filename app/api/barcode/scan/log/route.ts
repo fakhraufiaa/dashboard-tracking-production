@@ -10,11 +10,11 @@ export async function GET(req: NextRequest) {
     return new Response("uniqCode wajib diisi", { status: 400 })
   }
 
-  // SSE setup
+  const encoder = new TextEncoder()
+  let interval: NodeJS.Timeout
+
   const stream = new ReadableStream({
     async start(controller) {
-      const encoder = new TextEncoder()
-
       async function sendLogs() {
         const productionUnit = await prisma.productionUnit.findUnique({
           where: { uniqCode: uniqCode as string },
@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
 
         if (!productionUnit) {
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: "ProductionUnit tidak ditemukan" })}\n\n`)
+            encoder.encode(
+              `data: ${JSON.stringify({ error: "ProductionUnit tidak ditemukan" })}\n\n`
+            )
           )
           return
         }
@@ -49,20 +51,31 @@ export async function GET(req: NextRequest) {
               datetime: scan.createdAt,
             }))
           )
-          .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
+          .sort(
+            (a, b) =>
+              new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+          )
 
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ logs })}\n\n`))
+        try {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ logs })}\n\n`)
+          )
+        } catch (err) {
+          // kalau controller sudah close, jangan enqueue lagi
+          clearInterval(interval)
+        }
       }
 
       // pertama kali kirim
       await sendLogs()
 
       // interval polling tiap 2 detik
-      const interval = setInterval(sendLogs, 2000)
+      interval = setInterval(sendLogs, 2000)
+    },
 
-      // bersihin stream kalau client disconnect
-            // cleanup kalau client disconnect
-      return () => clearInterval(interval)
+    cancel() {
+      // ✅ dipanggil otomatis kalau client disconnect
+      clearInterval(interval)
     },
   })
 
