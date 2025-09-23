@@ -184,7 +184,9 @@ export function UserManagement({ onBack }: UserManagementProps) {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-balance">User Management</h1>
-            <p className="text-muted-foreground mt-2">Kelola pengguna sistem produksi</p>
+            <p className="text-muted-foreground mt-2">
+              Kelola pengguna sistem produksi
+            </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
@@ -195,9 +197,13 @@ export function UserManagement({ onBack }: UserManagementProps) {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{editingUser ? "Edit Pengguna" : "Tambah Pengguna Baru"}</DialogTitle>
+                <DialogTitle>
+                  {editingUser ? "Edit Pengguna" : "Tambah Pengguna Baru"}
+                </DialogTitle>
                 <DialogDescription>
-                  {editingUser ? "Update informasi pengguna yang sudah ada" : "Masukkan informasi untuk pengguna baru"}
+                  {editingUser
+                    ? "Update informasi pengguna yang sudah ada"
+                    : "Masukkan informasi untuk pengguna baru"}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -208,7 +214,9 @@ export function UserManagement({ onBack }: UserManagementProps) {
                     type="number"
                     placeholder="Masukkan kode unik"
                     value={formData.uniqCode}
-                    onChange={(e) => setFormData({ ...formData, uniqCode: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, uniqCode: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -218,13 +226,20 @@ export function UserManagement({ onBack }: UserManagementProps) {
                     id="name"
                     placeholder="Masukkan nama lengkap"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                  <Select
+                    value={formData.role}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, role: value })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih role" />
                     </SelectTrigger>
@@ -238,21 +253,34 @@ export function UserManagement({ onBack }: UserManagementProps) {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password {editingUser && "(kosongkan jika tidak ingin mengubah)"}</Label>
+                  <Label htmlFor="password">
+                    Password{" "}
+                    {editingUser && "(kosongkan jika tidak ingin mengubah)"}
+                  </Label>
                   <Input
                     id="password"
                     type="password"
                     placeholder="Masukkan password"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
                     required={!editingUser}
                   />
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" disabled={loading} className="flex-1">
-                    {loading ? "Menyimpan..." : editingUser ? "Update" : "Tambah"}
+                    {loading
+                      ? "Menyimpan..."
+                      : editingUser
+                      ? "Update"
+                      : "Tambah"}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setDialogOpen(false)}
+                  >
                     Batal
                   </Button>
                 </div>
@@ -273,19 +301,34 @@ export function UserManagement({ onBack }: UserManagementProps) {
         <CardContent className="max-w-5xl">
           <div className="space-y-4 max-h-[300px] overflow-y-auto">
             {users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div
+                key={user.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
                 <div className="flex items-center gap-4">
                   <div>
                     <p className="font-medium">{user.name}</p>
-                    <p className="text-sm text-muted-foreground">Kode: {user.uniqCode}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Kode: {user.uniqCode}
+                    </p>
                   </div>
-                  <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
+                  <Badge variant={getRoleBadgeVariant(user.role)}>
+                    {user.role}
+                  </Badge>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => openEditDialog(user)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEditDialog(user)}
+                  >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleDelete(user.id)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(user.id)}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -295,5 +338,5 @@ export function UserManagement({ onBack }: UserManagementProps) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

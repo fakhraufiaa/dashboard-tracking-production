@@ -1,22 +1,22 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { createContext, useContext, useEffect, useState } from "react"
-import type { User } from "@/lib/type"
+import { createContext, useContext, useEffect, useState } from "react";
+import type { User } from "@/lib/type";
 
 interface AuthContextType {
-  user: User | null
-  login: (uniqCode: number, password: string) => Promise<boolean>
-  logout: () => void
-  loading: boolean
+  user: User | null;
+  login: (uniqCode: number, password: string) => Promise<boolean>;
+  logout: () => void;
+  loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check if user is logged in on mount
@@ -24,57 +24,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await fetch("/api/auth/me", {
           credentials: "include",
-        })
+        });
         if (response.ok) {
-          const userData = await response.json()
-          setUser(userData)
+          const userData = await response.json();
+          setUser(userData);
         }
       } catch (error) {
-        console.error("Auth check failed:", error)
+        console.error("Auth check failed:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    checkAuth()
-  }, [])
+    checkAuth();
+  }, []);
 
-  const login = async (uniqCode: number, password: string): Promise<boolean> => {
+  const login = async (
+    uniqCode: number,
+    password: string
+  ): Promise<boolean> => {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uniqCode, password }),
-      })
+      });
 
       if (response.ok) {
-        const userData = await response.json()
-        setUser(userData)
-        return true
+        const userData = await response.json();
+        setUser(userData);
+        return true;
       }
-      return false
+      return false;
     } catch (error) {
-      console.error("Login failed:", error)
-      return false
+      console.error("Login failed:", error);
+      return false;
     }
-  }
+  };
 
   const logout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
-      setUser(null)
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUser(null);
     } catch (error) {
-      console.error("Logout failed:", error)
+      console.error("Logout failed:", error);
     }
-  }
-
-  return <AuthContext.Provider value={{ user, login, logout, loading }}>{children}</AuthContext.Provider>
+  };
+  return (
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context
+  return context;
 }

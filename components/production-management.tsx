@@ -43,92 +43,95 @@ interface Unit {
 
 
 export function ProductionManagement({ onBack }: ProductionManagementProps) {
-  const [productions, setProductions] = useState<ProductionWithUnits[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedProduction, setSelectedProduction] = useState<ProductionWithUnits | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showDetailModal, setShowDetailModal] = useState(false)
-  const [selectedUnits, setSelectedUnits] = useState<number[]>([])
+  const [productions, setProductions] = useState<ProductionWithUnits[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProduction, setSelectedProduction] =
+    useState<ProductionWithUnits | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedUnits, setSelectedUnits] = useState<number[]>([]);
 
   // Form states
   const [formData, setFormData] = useState({
     name: "",
     jumlah: "",
-  })
-  const [formLoading, setFormLoading] = useState(false)
+  });
+  const [formLoading, setFormLoading] = useState(false);
 
   useEffect(() => {
-    fetchProductions()
-  }, [])
+    fetchProductions();
+  }, []);
 
   const fetchProductions = async () => {
     try {
-      const response = await fetch("/api/productions")
+      const response = await fetch("/api/productions");
       if (response.ok) {
-        const data = await response.json()
-        setProductions(data)
+        const data = await response.json();
+        setProductions(data);
       }
     } catch (error) {
-      console.error("Error fetching productions:", error)
+      console.error("Error fetching productions:", error);
       toast({
         title: "Error",
         description: "Gagal memuat data produksi",
         variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-const printAllBarcodes = async (productionId: number) => {
-  try {
-    const response = await fetch("/api/barcode/print", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productionId }),
-    });
-
-    if (!response.ok) {
-      toast({
-        title: "Error",
-        description: "Gagal mengambil data barcode",
-        variant: "destructive",
       });
-      return;
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const { units }: { units: Unit[] } = await response.json();
+  const printAllBarcodes = async (productionId: number) => {
+    try {
+      const response = await fetch("/api/barcode/print", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productionId }),
+      });
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: "Gagal mengambil data barcode",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    let allContent = "";
+      const { units }: { units: Unit[] } = await response.json();
 
-    units.forEach((unit, idx) => {
-      let content = `
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) return;
+
+      let allContent = "";
+
+      units.forEach((unit, idx) => {
+        let content = `
         <div class="page">
-          <div class="uniq">${unit.uniqCode ? `#${unit.uniqCode}` : "&nbsp;"}</div>
+          <div class="uniq">${
+            unit.uniqCode ? `#${unit.uniqCode}` : "&nbsp;"
+          }</div>
       `;
 
-      unit.genUnits.forEach((g, i) => {
-        content += `
+        unit.genUnits.forEach((g, i) => {
+          content += `
             <div class="block">
               <div class="barcode">${g.jsBarcode}</div>
             </div>
         `;
+        });
+
+        content += `</div></div>`;
+
+        if (idx !== units.length - 1) {
+          content += `<div class="page-break"></div>`;
+        }
+
+        allContent += content;
       });
 
-      content += `</div></div>`;
-
-      if (idx !== units.length - 1) {
-        content += `<div class="page-break"></div>`;
-      }
-
-      allContent += content;
-    });
-
-    printWindow.document.write(`
+      printWindow.document.write(`
       <html>
         <head>
           <title>Print Barcode</title>
@@ -211,28 +214,22 @@ const printAllBarcodes = async (productionId: number) => {
       </html>
     `);
 
-    printWindow.document.close();
-    printWindow.print();
-    printWindow.close();
-  } catch (error) {
-    console.error(error);
-    toast({
-      title: "Error",
-      description: "Terjadi kesalahan saat mencetak barcode",
-      variant: "destructive",
-    });
-  }
-};
-
-
-
-
-
-
+      printWindow.document.close();
+      printWindow.print();
+      printWindow.close();
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan saat mencetak barcode",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleCreateProduction = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setFormLoading(true)
+    e.preventDefault();
+    setFormLoading(true);
 
     try {
       const response = await fetch("/api/productions", {
@@ -242,104 +239,108 @@ const printAllBarcodes = async (productionId: number) => {
           name: formData.name,
           jumlah: Number.parseInt(formData.jumlah),
         }),
-      })
+      });
 
       if (response.ok) {
         toast({
           title: "Berhasil",
           description: "Produksi berhasil dibuat",
-        })
-        setShowCreateModal(false)
-        setFormData({ name: "", jumlah: "" })
-        fetchProductions()
+        });
+        setShowCreateModal(false);
+        setFormData({ name: "", jumlah: "" });
+        fetchProductions();
       } else {
-        throw new Error("Failed to create production")
+        throw new Error("Failed to create production");
       }
     } catch (error) {
-      console.error("Error creating production:", error)
+      console.error("Error creating production:", error);
       toast({
         title: "Error",
         description: "Gagal membuat produksi",
         variant: "destructive",
-      })
+      });
     } finally {
-      setFormLoading(false)
+      setFormLoading(false);
     }
-  }
+  };
 
   const handleDeleteProduction = async (id: number) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus produksi ini?")) return
+    if (!confirm("Apakah Anda yakin ingin menghapus produksi ini?")) return;
 
     try {
       const response = await fetch(`/api/productions/${id}`, {
         method: "DELETE",
-      })
+      });
 
       if (response.ok) {
         toast({
           title: "Berhasil",
           description: "Produksi berhasil dihapus",
-        })
-        fetchProductions()
+        });
+        fetchProductions();
       } else {
-        throw new Error("Failed to delete production")
+        throw new Error("Failed to delete production");
       }
     } catch (error) {
-      console.error("Error deleting production:", error)
+      console.error("Error deleting production:", error);
       toast({
         title: "Error",
         description: "Gagal menghapus produksi",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const filteredProductions = productions.filter(
     (production) =>
       production.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      production.units.some((unit) => unit.uniqCode.toLowerCase().includes(searchTerm.toLowerCase())),
-  )
+      production.units.some((unit) =>
+        unit.uniqCode.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+  );
 
   // Handler untuk toggle satu unit
-const toggleUnitSelection = (unitId: number) => {
-  setSelectedUnits((prev) =>
-    prev.includes(unitId) ? prev.filter((id) => id !== unitId) : [...prev, unitId]
-  )
-}
+  const toggleUnitSelection = (unitId: number) => {
+    setSelectedUnits((prev) =>
+      prev.includes(unitId)
+        ? prev.filter((id) => id !== unitId)
+        : [...prev, unitId]
+    );
+  };
 
-// Handler untuk toggle semua unit
-const toggleSelectAll = () => {
-  if (!selectedProduction) return
-  if (selectedUnits.length === selectedProduction.units.length) {
-    setSelectedUnits([])
-  } else {
-    setSelectedUnits(selectedProduction.units.map((u) => u.id))
-  }
-}
+  // Handler untuk toggle semua unit
+  const toggleSelectAll = () => {
+    if (!selectedProduction) return;
+    if (selectedUnits.length === selectedProduction.units.length) {
+      setSelectedUnits([]);
+    } else {
+      setSelectedUnits(selectedProduction.units.map((u) => u.id));
+    }
+  };
 
-// Handler generate
-const handleGenerate = async () => {
-  if (selectedUnits.length === 0) {
+  // Handler generate
+  const handleGenerate = async () => {
+    if (selectedUnits.length === 0) {
+      toast({
+        title: "Pilih unit terlebih dahulu",
+        description: "Tidak ada unit yang dipilih",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
-      title: "Pilih unit terlebih dahulu",
-      description: "Tidak ada unit yang dipilih",
-      variant: "destructive",
-    })
-    return
-  }
+      title: "Generate",
+      description: `Menghasilkan barcode untuk ${selectedUnits.length} unit`,
+    });
 
-  toast({
-    title: "Generate",
-    description: `Menghasilkan barcode untuk ${selectedUnits.length} unit`,
-  })
-
-  // Contoh panggil API
-  await fetch("/api/barcode/generate/bulk", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ unitIds: selectedUnits }),
-  })
-}
+    // Contoh panggil API
+    await fetch("/api/barcode/generate/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unitIds: selectedUnits }),
+    });
+  };
 
   return (
     <main className="container mx-auto px-4 py-8">
@@ -445,7 +446,7 @@ const handleGenerate = async () => {
               Total: {filteredProductions.length} produksi
             </CardDescription>
           </CardHeader>
-          <CardContent> 
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -526,95 +527,96 @@ const handleGenerate = async () => {
         </Card>
       )}
 
-{/* Production Detail Modal */}
-<Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-  <DialogContent className="max-w-4xl">
-    <DialogHeader>
-      <DialogTitle>
-        Detail Produksi: {selectedProduction?.name}
-      </DialogTitle>
-      <DialogDescription>
-        Daftar unit produksi yang telah dibuat
-      </DialogDescription>
-    </DialogHeader>
-    {selectedProduction && (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-          <div>
-            <p className="text-sm text-muted-foreground">Total Unit</p>
-            <p className="text-2xl font-bold">{selectedProduction.jumlah}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Unit Dibuat</p>
-            <p className="text-2xl font-bold">
-              {selectedProduction.units.length}
-            </p>
-          </div>
-        </div>
+      {/* Production Detail Modal */}
+      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              Detail Produksi: {selectedProduction?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Daftar unit produksi yang telah dibuat
+            </DialogDescription>
+          </DialogHeader>
+          {selectedProduction && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Unit</p>
+                  <p className="text-2xl font-bold">
+                    {selectedProduction.jumlah}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Unit Dibuat</p>
+                  <p className="text-2xl font-bold">
+                    {selectedProduction.units.length}
+                  </p>
+                </div>
+              </div>
 
-        {/* ✅ Tambahkan scroll kalau unit > 5 */}
-        <div
-          className={
-            selectedProduction.units.length > 5
-              ? "max-h-64 overflow-y-auto border rounded-lg"
-              : ""
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  <Checkbox
-                    checked={
-                      selectedProduction?.units.length > 0 &&
-                      selectedUnits.length ===
-                        selectedProduction.units.length
-                    }
-                    onCheckedChange={toggleSelectAll}
-                  />
-                </TableHead>
-                <TableHead>No</TableHead>
-                <TableHead>Kode Unit</TableHead>
-                <TableHead>Tanggal Dibuat</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {selectedProduction.units.map((unit, index) => (
-                <TableRow key={unit.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedUnits.includes(unit.id)}
-                      onCheckedChange={() =>
-                        toggleUnitSelection(unit.id)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell className="font-mono">
-                    {unit.uniqCode}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(unit.createdAt).toLocaleDateString("id-ID")}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              {/* ✅ Tambahkan scroll kalau unit > 5 */}
+              <div
+                className={
+                  selectedProduction.units.length > 5
+                    ? "max-h-64 overflow-y-auto border rounded-lg"
+                    : ""
+                }
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
+                        <Checkbox
+                          checked={
+                            selectedProduction?.units.length > 0 &&
+                            selectedUnits.length ===
+                              selectedProduction.units.length
+                          }
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead>No</TableHead>
+                      <TableHead>Kode Unit</TableHead>
+                      <TableHead>Tanggal Dibuat</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedProduction.units.map((unit, index) => (
+                      <TableRow key={unit.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedUnits.includes(unit.id)}
+                            onCheckedChange={() => toggleUnitSelection(unit.id)}
+                          />
+                        </TableCell>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell className="font-mono">
+                          {unit.uniqCode}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(unit.createdAt).toLocaleDateString("id-ID")}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-        <div className="mt-4 flex justify-end">
-          <Button onClick={handleGenerate}>Generate</Button>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={() => printAllBarcodes(selectedProduction!.id)}>
-            Print Semua Barcode
-          </Button>
-        </div>
-      </div>
-    )}
-  </DialogContent>
-</Dialog>
-
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleGenerate}>Generate</Button>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button
+                  onClick={() => printAllBarcodes(selectedProduction!.id)}
+                >
+                  Print Semua Barcode
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

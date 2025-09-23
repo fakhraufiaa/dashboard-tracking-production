@@ -1,250 +1,284 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { toast } from "@/lib/use-toast"
-import { ArrowLeft, Eye, Loader2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-
-
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/lib/use-toast";
+import { ArrowLeft, CheckCircleIcon, Eye, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface ProcessLoggingProps {
-  onBack: () => void
-  goToPage?: React.Dispatch<React.SetStateAction<string | null>>
-
+  onBack: () => void;
+  goToPage?: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-
 interface ProcessUnit {
-  id: number
-  uniqCode: string
-  production: { name: string }
+  id: number;
+  uniqCode: string;
+  production: { name: string };
   processQc?: {
-    id: number
-    uji_input: boolean
-    uji_output: boolean
-    uji_ac: boolean
-    uji_kabel: boolean
-    labelling: boolean
-  }
+    id: number;
+    uji_input: boolean;
+    uji_output: boolean;
+    uji_ac: boolean;
+    uji_kabel: boolean;
+    labelling: boolean;
+  };
   genUnits?: {
-    id: number
-    process: string
-    status: boolean
-  }[]
+    id: number;
+    process: string;
+    status: boolean;
+  }[];
   processUnitProductions?: {
-    id: number
-    process: string
-    status: boolean
-    qcUser?: { name: string }
-    createdAt: string
-  }[]
+    id: number;
+    process: string;
+    status: boolean;
+    qcUser?: { name: string };
+    createdAt: string;
+  }[];
 }
 
 interface ScanLog {
-  code: string
-  process: string
-  status: string
-  pekerja: string
-  role: string
-  datetime: string
+  code: string;
+  process: string;
+  status: string;
+  pekerja: string;
+  role: string;
+  datetime: string;
 }
 
 export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
-  const [units, setUnits] = useState<ProcessUnit[]>([])
-  const [selectedUnit, setSelectedUnit] = useState<ProcessUnit | null>(null)
-  const [detailUnit, setDetailUnit] = useState<ProcessUnit | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectAll, setSelectAll] = useState(false)
-  const [scanLogs, setScanLogs] = useState<ScanLog[]>([])
+  const [units, setUnits] = useState<ProcessUnit[]>([]);
+  const [selectedUnit, setSelectedUnit] = useState<ProcessUnit | null>(null);
+  const [detailUnit, setDetailUnit] = useState<ProcessUnit | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectAll, setSelectAll] = useState(false);
+  const [scanLogs, setScanLogs] = useState<ScanLog[]>([]);
 
-  const checklistFields = ["uji_input", "uji_output", "uji_ac", "uji_kabel", "labelling"]
-  
+  const checklistFields = [
+    "uji_input",
+    "uji_output",
+    "uji_ac",
+    "uji_kabel",
+    "labelling",
+  ];
+
   function getGeneralStatus(unit: ProcessUnit): "red" | "yellow" | "green" {
-  const allProcesses = ["INV", "SCC", "BATT", "PD", "PB", "WD", "WB", "QC", "PACK"];
+    const allProcesses = [
+      "INV",
+      "SCC",
+      "BATT",
+      "PD",
+      "PB",
+      "WD",
+      "WB",
+      "QC",
+      "PACK",
+    ];
 
-  // ❌ jika genUnits kosong atau tidak ada, langsung merah
-  if (!unit.genUnits || unit.genUnits.length === 0) return "red";
+    // ❌ jika genUnits kosong atau tidak ada, langsung merah
+    if (!unit.genUnits || unit.genUnits.length === 0) return "red";
 
-  const doneProcesses = unit.genUnits
-    .filter((g) => g.status)
-    .map((g) => g.process);
+    const doneProcesses = unit.genUnits
+      .filter((g) => g.status)
+      .map((g) => g.process);
 
-  // ✅ semua done
-  if (allProcesses.every((p) => doneProcesses.includes(p))) return "green";
+    // ✅ semua done
+    if (allProcesses.every((p) => doneProcesses.includes(p))) return "green";
 
-  // ⚠️ sebagian done
-  if (doneProcesses.length > 0) return "yellow";
+    // ⚠️ sebagian done
+    if (doneProcesses.length > 0) return "yellow";
 
-  // ❌ jika semua status false → merah
-  return "red";
-}
-
-
+    // ❌ jika semua status false → merah
+    return "red";
+  }
 
   // Fetch ProcessUnit
   const fetchUnits = async () => {
-    setLoading(true) // ⬅️ ini penting supaya loading muncul tiap fetch
+    setLoading(true); // ⬅️ ini penting supaya loading muncul tiap fetch
     try {
-      const res = await fetch("/api/qc/process-qc")
-      const data = await res.json()
-      setUnits(data.data.map((u: ProcessUnit) => ({
-         ...u,
-        genUnits: u.genUnits ?? [],
-      }))
-    )
+      const res = await fetch("/api/qc/process-qc");
+      const data = await res.json();
+      setUnits(
+        data.data.map((u: ProcessUnit) => ({
+          ...u,
+          genUnits: u.genUnits ?? [],
+        }))
+      );
     } catch {
       toast({
         title: "Error",
         description: "Gagal memuat data QC",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false) // ⬅️ berhenti loading apapun hasilnya
+      setLoading(false); // ⬅️ berhenti loading apapun hasilnya
     }
-  }
+  };
 
   useEffect(() => {
-    fetchUnits()
-  }, [])
-
+    fetchUnits();
+  }, []);
 
   // ✅ Hapus fetchScanLogs lama, ganti useEffect khusus SSE
-useEffect(() => {
-  if (!detailUnit) return
+  useEffect(() => {
+    if (!detailUnit) return;
 
-  setLoading(true)
-  const es = new EventSource(`/api/barcode/scan/log?uniqCode=${detailUnit.uniqCode}`)
+    setLoading(true);
+    const es = new EventSource(
+      `/api/barcode/scan/log?uniqCode=${detailUnit.uniqCode}`
+    );
 
-  es.onmessage = (event) => {
-  try {
-    const data = JSON.parse(event.data)
-    if (data.logs && detailUnit) {
-      // update scanLogs
-      setScanLogs(data.logs)
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.logs && detailUnit) {
+          // update scanLogs
+          setScanLogs(data.logs);
 
-      // mapping logs ke genUnits dengan status boolean
-      const updatedGenUnits = data.logs.map((log: any) => ({
-        id: log.id,
-        process: log.process,
-        status: log.status === "Done",
-      }))
+          // mapping logs ke genUnits dengan status boolean
+          const updatedGenUnits = data.logs.map((log: any) => ({
+            id: log.id,
+            process: log.process,
+            status: log.status === "Done",
+          }));
 
-      // update units di state
-      setUnits((prev) =>
-        prev.map((u) =>
-          u.id === detailUnit.id
-            ? {
-                ...u,
-                genUnits: updatedGenUnits,
-                generalStatus: getGeneralStatus({ ...u, genUnits: updatedGenUnits }),
-              }
-            : u
-        )
-      )
-    }
+          // update units di state
+          setUnits((prev) =>
+            prev.map((u) =>
+              u.id === detailUnit.id
+                ? {
+                    ...u,
+                    genUnits: updatedGenUnits,
+                    generalStatus: getGeneralStatus({
+                      ...u,
+                      genUnits: updatedGenUnits,
+                    }),
+                  }
+                : u
+            )
+          );
+        }
 
-    if (data.summary) {
-      console.log("QC Summary:", data.summary)
-    }
+        if (data.summary) {
+          console.log("QC Summary:", data.summary);
+        }
 
-    setLoading(false)
-  } catch (e) {
-    console.error("❌ Error parsing SSE:", e)
-    setLoading(false)
-  }
-}
+        setLoading(false);
+      } catch (e) {
+        console.error("❌ Error parsing SSE:", e);
+        setLoading(false);
+      }
+    };
 
+    es.onerror = (err) => {
+      console.error("❌ SSE error:", err);
+      es.close();
+      setLoading(false);
+      toast({
+        title: "Error",
+        description: "Gagal terhubung ke stream log scan",
+        variant: "destructive",
+      });
+    };
 
-
-
-  es.onerror = (err) => {
-    console.error("❌ SSE error:", err)
-    es.close()
-    setLoading(false)
-    toast({
-      title: "Error",
-      description: "Gagal terhubung ke stream log scan",
-      variant: "destructive",
-    })
-  }
-
-  // ✅ cleanup saat modal ditutup
-  return () => {
-    es.close()
-    setScanLogs([]) // reset biar bersih
-  }
-}, [detailUnit])
-
+    // ✅ cleanup saat modal ditutup
+    return () => {
+      es.close();
+      setScanLogs([]); // reset biar bersih
+    };
+  }, [detailUnit]);
 
   const filteredUnits = units.filter((u) =>
     u.uniqCode.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  );
 
   const getCompletionCount = (unit: ProcessUnit) => {
-    const total = checklistFields.length
-    const done = checklistFields.filter((f) => unit.processQc?.[f as keyof typeof unit.processQc]).length
-    return { done, total }
-  }
+    const total = checklistFields.length;
+    const done = checklistFields.filter(
+      (f) => unit.processQc?.[f as keyof typeof unit.processQc]
+    ).length;
+    return { done, total };
+  };
 
   const getQcStatus = (unit: ProcessUnit) => {
-    if (!unit.processQc) return "Checking"
-    const done = checklistFields.every((f) => unit.processQc?.[f as keyof typeof unit.processQc])
-    return done ? "Done" : "Checking"
-  }
+    if (!unit.processQc) return "Checking";
+    const done = checklistFields.every(
+      (f) => unit.processQc?.[f as keyof typeof unit.processQc]
+    );
+    return done ? "Done" : "Checking";
+  };
 
-const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) => {
-  setLoading(true)
-  try {
-    await fetch("/api/qc/process-qc", {
-      method: "POST",
-      body: JSON.stringify({
-        productionUnitId: unitId,
-        qcUserId: 1, // TODO: ganti qcUserId sesuai user login
-        checklist,
-      }),
-    })
+  const handleSaveQc = async (
+    unitId: number,
+    checklist: Record<string, boolean>
+  ) => {
+    setLoading(true);
+    try {
+      await fetch("/api/qc/process-qc", {
+        method: "POST",
+        body: JSON.stringify({
+          productionUnitId: unitId,
+          qcUserId: 1, // TODO: ganti qcUserId sesuai user login
+          checklist,
+        }),
+      });
 
-    toast({ title: "Berhasil", description: "QC berhasil disimpan" })
-    fetchUnits()
-    setSelectedUnit(null)
+      toast({ title: "Berhasil", description: "QC berhasil disimpan" });
+      fetchUnits();
+      setSelectedUnit(null);
 
-    // ✅ Cek kalau semua checklist sudah true
-    const allChecked = Object.values(checklist).every(Boolean)
-    if (allChecked) {
-      goToPage?.("scan")// direct ke halaman barcode
+      // ✅ Cek kalau semua checklist sudah true
+      const allChecked = Object.values(checklist).every(Boolean);
+      if (allChecked) {
+        goToPage?.("scan"); // direct ke halaman barcode
+      }
+    } catch {
+      toast({
+        title: "Error",
+        description: "Gagal menyimpan QC",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  } catch {
-    toast({ title: "Error", description: "Gagal menyimpan QC", variant: "destructive" })
-  } finally {
-    setLoading(false)
-  }
-}
+  };
 
   const toggleSelectAll = () => {
-    if (!selectedUnit) return
-    const newVal = !selectAll
+    if (!selectedUnit) return;
+    const newVal = !selectAll;
     setSelectedUnit({
       ...selectedUnit,
       processQc: {
         id: selectedUnit.processQc?.id ?? 0,
-        uji_input: newVal ,
-        uji_output:  newVal ,
-        uji_ac:newVal,
+        uji_input: newVal,
+        uji_output: newVal,
+        uji_ac: newVal,
         uji_kabel: newVal,
-        labelling: newVal ,
+        labelling: newVal,
       },
-    })
-    setSelectAll(newVal)
-  }
+    });
+    setSelectAll(newVal);
+  };
 
   const toggleItem = (field: string) => {
-    if (!selectedUnit) return
+    if (!selectedUnit) return;
     const newQc = {
       id: selectedUnit.processQc?.id ?? 0,
       uji_input: selectedUnit.processQc?.uji_input ?? false,
@@ -252,13 +286,12 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
       uji_ac: selectedUnit.processQc?.uji_ac ?? false,
       uji_kabel: selectedUnit.processQc?.uji_kabel ?? false,
       labelling: selectedUnit.processQc?.labelling ?? false,
-      [field]: !selectedUnit.processQc?.[field as keyof typeof selectedUnit.processQc]
-    }
-    setSelectedUnit({ ...selectedUnit, processQc: newQc })
-    setSelectAll(Object.values(newQc).every((v) => v === true))
-  }
-
-
+      [field]:
+        !selectedUnit.processQc?.[field as keyof typeof selectedUnit.processQc],
+    };
+    setSelectedUnit({ ...selectedUnit, processQc: newQc });
+    setSelectAll(Object.values(newQc).every((v) => v === true));
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -288,7 +321,7 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
           <CardTitle>
             <div className="flex justify-between items-center">
               <p>List ProcessUnit</p>
-              <p className="opacity-50">status</p>
+              <span className="opacity-50">status</span>
             </div>
           </CardTitle>
 
@@ -337,7 +370,14 @@ const handleSaveQc = async (unitId: number, checklist: Record<string, boolean>) 
                         <TableCell>{idx + 1}</TableCell>
                         <TableCell>{unit.uniqCode}</TableCell>
                         <TableCell>
-                          {done}/{total} ✅
+                          {done}/{total}
+                          <CheckCircleIcon
+                            className={`inline-block ml-1 h-4 w-4 ${
+                              done === total
+                                ? "text-green-500"
+                                : "text-secondary"
+                            }`}
+                          />
                         </TableCell>
                         <TableCell>{getQcStatus(unit)}</TableCell>
                         <TableCell>

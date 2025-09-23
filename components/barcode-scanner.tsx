@@ -23,8 +23,6 @@ import {
 } from "@zxing/library"
 
 
-
-
 interface BarcodeScannerProps {
   onBack: () => void
 }
@@ -107,113 +105,88 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
       setIsScanning(false)
     }
   }
+
   const stopScanning = () => {
     if (codeReaderRef.current) {
-      codeReaderRef.current.reset()
-      codeReaderRef.current = null
+      codeReaderRef.current.reset();
+      codeReaderRef.current = null;
     }
-    setIsScanning(false)
-    setIsLoading(false)
+    setIsScanning(false);
+    setIsLoading(false);
   }
 
 
+  const handleScanSuccess = async (barcodeText: string) => {
+    const cleanBarcode = barcodeText.trim()
+    if (scanCooldownRef.current) return
+    scanCooldownRef.current = true
+    setTimeout(() => { scanCooldownRef.current = false }, 2000)
 
-const handleScanSuccess = async (barcodeText: string) => {
-  const cleanBarcode = barcodeText.trim()
-  if (scanCooldownRef.current) return
-  scanCooldownRef.current = true
-  setTimeout(() => { scanCooldownRef.current = false }, 2000)
+    console.log("📷 Scan:", cleanBarcode)
 
-  console.log("📷 Scan:", cleanBarcode)
-
-  try {
-    // 🔎 preview dulu data barcode (tanpa insert ke DB)
-    const response = await fetch("/api/barcode/scan/preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ barcodeText: cleanBarcode }),
-    })
-    const data = await response.json()
-    if (response.ok) {
-      // simpan ke pending untuk konfirmasi
-      setPendingBarcode(data)
-      stopScanning()
-    } else {
+    try {
+      // 🔎 preview dulu data barcode (tanpa insert ke DB)
+      const response = await fetch("/api/barcode/scan/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ barcodeText: cleanBarcode }),
+      })
+      const data = await response.json()
+      if (response.ok) {
+        // simpan ke pending untuk konfirmasi
+        setPendingBarcode(data)
+        stopScanning()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Barcode tidak valid",
+          variant: "destructive",
+        })
+      }
+    } catch {
       toast({
         title: "Error",
-        description: data.error || "Barcode tidak valid",
+        description: "Gagal memproses barcode",
         variant: "destructive",
       })
     }
-  } catch {
-    toast({
-      title: "Error",
-      description: "Gagal memproses barcode",
-      variant: "destructive",
-    })
   }
-}
 
-const confirmScan = async () => {
-  if (!pendingBarcode) return
-  setIsLoading(true)
+  const confirmScan = async () => {
+    if (!pendingBarcode) return
+    setIsLoading(true)
 
-  try {
-    const response = await fetch("/api/barcode/scan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ barcodeText: pendingBarcode.uniqCode }),
-    })
+    try {
+      const response = await fetch("/api/barcode/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ barcodeText: pendingBarcode.uniqCode }),
+      })
 
-    const data = await response.json()
-    if (response.ok) {
-      setScanResult(data)
-      toast({ title: "Berhasil", description: "Barcode berhasil dipindai" })
-      stopScanning()
-    } else {
+      const data = await response.json()
+      if (response.ok) {
+        setScanResult(data)
+        toast({ title: "Berhasil", description: "Barcode berhasil dipindai" })
+        stopScanning()
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Gagal menyimpan scan",
+          variant: "destructive",
+        })
+      }
+    } catch {
       toast({
         title: "Error",
-        description: data.error || "Gagal menyimpan scan",
+        description: "Terjadi kesalahan saat menyimpan scan",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
+      setPendingBarcode(null)
     }
-  } catch {
-    toast({
-      title: "Error",
-      description: "Terjadi kesalahan saat menyimpan scan",
-      variant: "destructive",
-    })
-  } finally {
-    setIsLoading(false)
-    setPendingBarcode(null)
   }
-}
-
-
-
-  // const recordScan = async () => {
-  //   if (!scanResult) return
-  //   try {
-  //     const res = await fetch("/api/barcode/scan", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ genProductionUnitId: scanResult.uniqCode }),
-  //     })
-  //     if (res.ok) {
-  //       toast({ title: "Berhasil", description: "Scan berhasil dicatat" })
-  //       setScanResult(null)
-  //     } else {
-  //       throw new Error("Failed to record scan")
-  //     }
-  //   } catch {
-  //     toast({
-  //       title: "Error",
-  //       description: "Gagal mencatat scan",
-  //       variant: "destructive",
-  //     })
-  //   }
-  // }
 
   return (
     <div className="container mx-auto px-4 py-8">
