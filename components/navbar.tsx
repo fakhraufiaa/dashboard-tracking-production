@@ -37,10 +37,15 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 opacity-80" />
-              <span className="font-medium">{user.name}</span>
-              <Badge className={getRoleColor(user.role)}>{user.role}</Badge>  
+            <div className="flex items-center gap-2 max-w-[150px]">
+              <User className="h-4 w-4 opacity-80 shrink-0" />
+              <span
+                className="truncate text-sm font-medium overflow-hidden text-ellipsis whitespace-nowrap"
+                title={user?.name}
+              >
+                {user?.name}
+              </span>
+              <Badge className={getRoleColor(user.role)}>{user.role}</Badge>
             </div>
 
             <Button

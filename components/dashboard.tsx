@@ -235,11 +235,11 @@ export function Dashboard() {
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">Role aktif:</span>
-                  <Badge variant="secondary">ADMIN</Badge>
+                  <Badge variant="secondary">{user?.role}</Badge>
                 </div>
                 <div className="flex items-center gap-2">
                   <Code className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Kode: 8</span>
+                  <span className="text-sm text-muted-foreground">Kode: {user?.uniqCode}</span>
                 </div>
               </div>
             </div>

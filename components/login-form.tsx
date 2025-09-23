@@ -62,7 +62,7 @@ export function LoginForm() {
                 value={uniqCode}
                 onChange={(e) => setUniqCode(e.target.value)}
                 required
-                className="text-center text-lg"
+                className="text-center bg-destructive/30"
               />
             </div>
             <div className="space-y-2">
@@ -74,6 +74,7 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="text-center bg-destructive/30"
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
