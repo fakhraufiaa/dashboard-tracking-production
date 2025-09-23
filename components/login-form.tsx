@@ -49,7 +49,7 @@ export function LoginForm() {
             <Factory className="h-6 w-6 text-primary-foreground" />
           </div>
           <CardTitle className="text-2xl font-bold">Production Management</CardTitle>
-          <CardDescription>Masuk ke sistem manajemen produksi dengan barcode</CardDescription>
+          <CardDescription className="opacity-50">Masukan kode unik dan password</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

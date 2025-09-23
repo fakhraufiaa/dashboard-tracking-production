@@ -62,6 +62,12 @@ interface ScanLog {
   datetime: string;
 }
 
+ interface LogEvent {
+  id: number
+  process: string
+  status: string
+}
+
 export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   const [units, setUnits] = useState<ProcessUnit[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<ProcessUnit | null>(null);
@@ -78,6 +84,9 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
     "uji_kabel",
     "labelling",
   ];
+
+ 
+
 
   function getGeneralStatus(unit: ProcessUnit): "red" | "yellow" | "green" {
     const allProcesses = [
@@ -153,7 +162,7 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
           setScanLogs(data.logs);
 
           // mapping logs ke genUnits dengan status boolean
-          const updatedGenUnits = data.logs.map((log: any) => ({
+          const updatedGenUnits = data.logs.map((log:LogEvent) => ({ //ini any nya diganti dulu supaya ga error build nantinya
             id: log.id,
             process: log.process,
             status: log.status === "Done",
