@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { LinesData } from "./type"
 
+
+
 export function useLinesData() {
   const [data, setData] = useState<LinesData | null>(null)
   const [loading, setLoading] = useState(true)

@@ -12,6 +12,13 @@ export interface LinesData {
   PACK: LineGroup
 }
 
+type LineItem = {
+  timestamp: string // ISO string atau epoch
+  value: number
+}
+
+
+
 export enum Role {
   ADMIN = "ADMIN",
   OPT = "OPT",

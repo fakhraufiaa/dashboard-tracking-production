@@ -29,6 +29,7 @@ import {
 import { toast } from "@/lib/use-toast";
 import { ArrowLeft, QrCode, Printer, Download, Loader2 } from "lucide-react";
 import type { ProductionUnit } from "@/lib/type";
+import { jsPDF } from "jspdf";
 
 interface BarcodeGeneratorProps {
   onBack: () => void;
@@ -235,20 +236,83 @@ export function BarcodeGenerator({ onBack }: BarcodeGeneratorProps) {
     }
   };
 
-  const downloadBarcode = async (unitId: number, uniqCode: string) => {
-    const genUnits = await fetchGenUnits(unitId);
-    genUnits.forEach((g: { jsBarcode: BlobPart; process: unknown }) => {
-      const blob = new Blob([g.jsBarcode], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `barcode-${uniqCode}-${g.process}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+  const svgToPng = async (svgBlob: Blob) => {
+    return new Promise<string>((resolve) => {
+      const url = URL.createObjectURL(svgBlob);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/png")); // base64 PNG
+      };
+      img.src = url;
     });
   };
+
+  const downloadBarcode = async (unitId: number, uniqCode: string) => {
+    const genUnits = await fetchGenUnits(unitId);
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    // Grid untuk 3 kolom x 3 baris
+    const cols = 1; // satu kolom
+    const rows = 9; // 9 baris
+    const cellWidth = pageWidth;
+    const cellHeight = pageHeight / rows;
+
+    for (let i = 0; i < genUnits.length; i++) {
+      const g = genUnits[i];
+
+      // convert BlobPart → base64 image
+      const pngBase64 = await svgToPng(
+        new Blob([g.jsBarcode], { type: "image/svg+xml" })
+      );
+
+      const img = new Image();
+    await new Promise<void>((resolve) => {
+      img.onload = () => {
+        const x = 30; // padding kiri
+        const y = i * cellHeight + 5; // posisi vertikal
+        const w = cellWidth - 50; // lebar dikurangi padding
+        const h = cellHeight - 10; // tinggi dikurangi padding
+        pdf.addImage(pngBase64, "PNG", x, y, w, h);
+        resolve();
+      };
+      img.src = pngBase64;
+    });
+
+      // Jika ingin lebih dari 9 barcode, bisa tambah halaman:
+      if ((i + 1) % (cols * rows) === 0 && i + 1 < genUnits.length) {
+        pdf.addPage();
+      }
+    }
+
+    pdf.save(`barcode-${uniqCode}.pdf`);
+  };
+  // const downloadBarcode = async (unitId: number, uniqCode: string) => {
+  //   const genUnits = await fetchGenUnits(unitId);
+  //   genUnits.forEach((g: { jsBarcode: BlobPart; process: unknown }) => {
+  //     const blob = new Blob([g.jsBarcode], { type: "text/html" });
+  //     const url = URL.createObjectURL(blob);
+  //     const a = document.createElement("a");
+  //     a.href = url;
+  //     a.download = `barcode-${uniqCode}-${g.process}.html`;
+  //     document.body.appendChild(a);
+  //     a.click();
+  //     document.body.removeChild(a);
+  //     URL.revokeObjectURL(url);
+  //   });
+  // };
 
   return (
     <main className="container mx-auto px-4 py-8">
