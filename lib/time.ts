@@ -5,17 +5,19 @@ import dayjs from "@/lib/dayjs"
  * Kalau sekarang < jam 6 → ambil kemarin 06:00
  * Kalau sekarang >= jam 6 → ambil hari ini 06:00
  */
-export function getToday6am(): Date {
-  const now = dayjs()
-  let base = now.hour(6).minute(0).second(0).millisecond(0)
 
-  if (now.hour() < 6) {
+export function getToday6am() {
+  // ambil jam 6 pagi Asia/Jakarta
+  let base = dayjs().hour(6).minute(0).second(0).millisecond(0)
+
+  // kalau sekarang sebelum jam 6, mundurkan ke hari sebelumnya
+  if (dayjs().hour() < 6) {
     base = base.subtract(1, "day")
   }
 
-  return base.toDate()
+  // convert ke UTC biar sama dengan yang di DB
+  return base.utc().toDate()
 }
-
 /**
  * Helper: return string YYYY-MM-DD dari jam 6 pagi terakhir
  */
