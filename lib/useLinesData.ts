@@ -10,10 +10,10 @@ export function useLinesData() {
   const [lastResetDate, setLastResetDate] = useState<string>("");
 
   const checkReset = () => {
-    const now = dayjs().tz();
+    const now = dayjs().toDate();
     const todayStr = now.toISOString().split("T")[0];
 
-    if (lastResetDate !== todayStr && now.hour() >= 6) {
+    if (lastResetDate !== todayStr && now.getHours() >= 6) {
       setLastResetDate(todayStr);
       // tidak perlu fetch lagi karena SSE akan kirim data baru
     }
