@@ -1,12 +1,12 @@
-    import dayjs from "dayjs"
-    import utc from "dayjs/plugin/utc"
-    import timezone from "dayjs/plugin/timezone"
+// lib/time.ts
+import dayjsBase from "dayjs"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
 
-    dayjs.extend(utc)
-    dayjs.extend(timezone)
+dayjsBase.extend(utc)
+dayjsBase.extend(timezone)
 
-    // ✅ Baca dari .env atau fallback ke Asia/Jakarta
-    const TZ = process.env.APP_TIMEZONE || "Asia/Jakarta"
-    dayjs.tz.setDefault(TZ)
+dayjsBase.tz.setDefault(process.env.NEXT_PUBLIC_APP_TIMEZONE || "Asia/Jakarta")
 
-    export default dayjs
+export const dayjs = dayjsBase
+export default dayjs
