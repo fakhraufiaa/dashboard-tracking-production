@@ -37,6 +37,7 @@ import LinesPacking from "./lines-pack";
 import { useLinesData } from "@/lib/useLinesData";
 import { ChartBar } from "./bar-chart";
 import { PageListLinesLog } from "./lines-log";
+import dayjs from "@/lib/dayjs";
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -47,7 +48,7 @@ export function Dashboard() {
   const { data, loading } = useLinesData();
 
   const getWelcomeMessage = () => {
-    const hour = new Date().getHours();
+    const hour = dayjs().toDate().getHours();
     if (hour < 12) return "Selamat pagi";
     if (hour < 15) return "Selamat siang";
     if (hour < 18) return "Selamat sore";

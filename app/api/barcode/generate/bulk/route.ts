@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { PrismaClient, ProcessType } from "@prisma/client"
 import JsBarcode from "jsbarcode"
 import { JSDOM } from "jsdom"
-import dayjs from "dayjs"
+import dayjs from "@/lib/dayjs"
 
 export const runtime = "nodejs" // ✅ pastikan jalan di Node.js
 

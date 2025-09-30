@@ -7,10 +7,12 @@ import {
   differenceInCalendarWeeks,
   getWeekOfMonth,
 } from "date-fns"
+import dayjs from "@/lib/dayjs"
+
 
 export async function GET() {
   try {
-    const now = new Date()
+    const now = dayjs().toDate()
     const monthStart = startOfMonth(now)
     const monthEnd = endOfMonth(now)
 
