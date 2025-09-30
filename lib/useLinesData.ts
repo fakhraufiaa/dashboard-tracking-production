@@ -1,62 +1,67 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { LinesData } from "./type";
-import dayjs from "@/lib/dayjs";
+import { useEffect, useState } from "react"
+import { LinesData } from "./type"
+import { getToday6amStr } from "@/lib/time"
 
 export function useLinesData() {
-  const [data, setData] = useState<LinesData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastResetDate, setLastResetDate] = useState<string>("");
+  const [data, setData] = useState<LinesData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [lastResetDate, setLastResetDate] = useState<string>(getToday6amStr())
 
   const checkReset = () => {
-    const now = dayjs().toDate();
-    const todayStr = now.toISOString().split("T")[0];
-
-    if (lastResetDate !== todayStr && now.getHours() >= 6) {
-      setLastResetDate(todayStr);
-      // tidak perlu fetch lagi karena SSE akan kirim data baru
+    const todayStr = getToday6amStr()
+    if (lastResetDate !== todayStr) {
+      setLastResetDate(todayStr)
+      // kalau perlu reset local state:
+      setData(null)
+      setLoading(true)
+      // optional: bisa refetch kalau mau langsung fresh data
+      fetch("/api/lines")
+        .then((res) => res.json())
+        .then((json) => setData(json))
+        .catch((err) => console.error("Error refetch after reset", err))
+        .finally(() => setLoading(false))
     }
-  };
+  }
 
   useEffect(() => {
     const fetchInitial = async () => {
       try {
-        const res = await fetch("/api/lines");
-        const json = await res.json();
-        setData(json);
-      } catch(err) {
-        console.error("Error fetching initial lines data", err);
+        const res = await fetch("/api/lines")
+        const json = await res.json()
+        setData(json)
+      } catch (err) {
+        console.error("Error fetching initial lines data", err)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    fetchInitial();
+    }
+    fetchInitial()
 
-    const es = new EventSource("/api/lines/realtime");
+    const es = new EventSource("/api/lines/realtime")
     es.onmessage = (event) => {
       try {
-        const parsed: LinesData = JSON.parse(event.data);
-        checkReset();
-        setData(parsed);
-        setLoading(false);
+        const parsed: LinesData = JSON.parse(event.data)
+        setData(parsed)
+        setLoading(false)
       } catch {
-        console.error("Error parsing SSE data");
+        console.error("Error parsing SSE data")
       }
-    };
+    }
     es.onerror = () => {
-      console.error("SSE error");
-      es.close();
-    };
+      console.error("SSE error")
+      es.close()
+    }
 
-    // Cek reset tiap menit, jika SSE tidak datang tepat jam 06
-    const interval = setInterval(checkReset, 60_000);
+    // Cek reset tiap menit
+    const interval = setInterval(checkReset, 60_000)
 
     return () => {
-      es.close();
-      clearInterval(interval);
-    };
-  }, [lastResetDate]);
+      es.close()
+      clearInterval(interval)
+    }
+  }, [lastResetDate])
 
-  return { data, loading };
+  return { data, loading }
 }
