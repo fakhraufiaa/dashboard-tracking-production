@@ -6,6 +6,6 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 
 // ✅ Baca dari .env atau fallback ke Asia/Jakarta
-const TZ = process.env.TZ || "Asia/Jakarta"
-dayjs.tz.setDefault(TZ)
+const APP_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Jakarta"
+dayjs.tz.setDefault(APP_TIMEZONE)
     
