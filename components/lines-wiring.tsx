@@ -17,9 +17,9 @@ export default function LinesWiring({ count, amount }: Props) {
       <div
         className="
           md:hidden flex flex-col items-center justify-center
-          h-24 w-24 rounded-full
-          bg-gradient-to-br from-chart-3 to-chart-4
-          shadow-lg ring-5 ring-chart-3/40
+          h-20 w-40 rectangle-full
+          bg-gradient-to-br from-chart-4 to-chart-3
+          shadow-lg
           relative mx-auto
         "
       >

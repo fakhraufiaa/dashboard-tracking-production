@@ -6,12 +6,17 @@ export async function GET(req: Request) {
   return new Response(
     new ReadableStream({
       async start(controller) {
+        let isClosed = false
+
         async function sendSummary() {
+          if (isClosed) return
           try {
             const summary = await getLinesSummary()
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(summary)}\n\n`)
-            )
+            if (!isClosed) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify(summary)}\n\n`)
+              )
+            }
           } catch (e) {
             console.error("Error sending summary:", e)
           }
@@ -26,6 +31,7 @@ export async function GET(req: Request) {
         // stop kalau client disconnect
         req.signal.addEventListener("abort", () => {
           clearInterval(interval)
+          isClosed = true
           controller.close()
         })
       },

@@ -62,10 +62,10 @@ interface ScanLog {
   datetime: string;
 }
 
- interface LogEvent {
-  id: number
-  process: string
-  status: string
+interface LogEvent {
+  id: number;
+  process: string;
+  status: string;
 }
 
 export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
@@ -85,9 +85,6 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
     "labelling",
   ];
 
- 
-
-
   function getGeneralStatus(unit: ProcessUnit): "red" | "yellow" | "green" {
     const allProcesses = [
       "INV",
@@ -98,7 +95,7 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
       "WD",
       "WB",
       "QC",
-      "PACK",
+      "FINISH",
     ];
 
     // ❌ jika genUnits kosong atau tidak ada, langsung merah
@@ -162,7 +159,8 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
           setScanLogs(data.logs);
 
           // mapping logs ke genUnits dengan status boolean
-          const updatedGenUnits = data.logs.map((log:LogEvent) => ({ //ini any nya diganti dulu supaya ga error build nantinya
+          const updatedGenUnits = data.logs.map((log: LogEvent) => ({
+            //ini any nya diganti dulu supaya ga error build nantinya
             id: log.id,
             process: log.process,
             status: log.status === "Done",
@@ -514,7 +512,12 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
                           <TableRow key={idx}>
                             <TableCell>{idx + 1}</TableCell>
                             <TableCell>{log.process}</TableCell>
-                            <TableCell>{log.pekerja}</TableCell>
+                            <TableCell
+                              className="w-16 max-w-[64px] truncate"
+                              title={log.pekerja}
+                            >
+                              {log.pekerja}
+                            </TableCell>
                             <TableCell>{log.role}</TableCell>
                             <TableCell>
                               {new Date(log.datetime).toLocaleString()}

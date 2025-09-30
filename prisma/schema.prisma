@@ -31,6 +31,7 @@ enum ProcessType {
   WB
   QC
   PACK
+  FINISH
 }
 
 model User {

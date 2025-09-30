@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "./auth-provider";
 import { Navbar } from "./navbar";
@@ -27,16 +28,22 @@ import {
   Shield,
   Scan,
   QrCodeIcon,
+  ScanBarcodeIcon,
 } from "lucide-react";
 import LinesAssy from "./lines-assy";
 import LinesWiring from "./lines-wiring";
 import LinesQC from "./lines-qc";
 import LinesPacking from "./lines-pack";
 import { useLinesData } from "@/lib/useLinesData";
+import { ChartBar } from "./bar-chart";
+import { PageListLinesLog } from "./lines-log";
 
 export function Dashboard() {
   const { user } = useAuth();
   const [activePage, setActivePage] = useState<string | null>(null);
+  const [processType, setProcessType] = useState<
+    "ASSY" | "WIRING" | "QC" | "FINISH"
+  >("ASSY");
   const { data, loading } = useLinesData();
 
   const getWelcomeMessage = () => {
@@ -129,6 +136,14 @@ export function Dashboard() {
         );
       case "scan":
         return <BarcodeScanner onBack={() => setActivePage(null)} />;
+      case "lineslog":
+        return (
+          <PageListLinesLog
+            onBack={() => setActivePage(null)}
+            goToPage={setActivePage}
+            processType={processType}
+          />
+        );
       default:
         return null;
     }
@@ -157,67 +172,103 @@ export function Dashboard() {
           </p>
         </div>
 
-        {/* Section khusus barcode & scan */}
-        <div className="mt-8">
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
-            <Button
-              onClick={() => setActivePage("scan")}
-              variant="outline"
-              className="border-border text-foreground bg-transparent  relative cursor-pointer"
-            >
-              <Scan className="h-4 w-4 mr-2" />
-              Scan Barcode
-            </Button>
-          </div>
+        {/* Widget floating pojok kanan bawah */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <Button
+            onClick={() => setActivePage("scan")}
+            variant="outline"
+            size="icon"
+            className="h-12 w-12 rectangle-full shadow-lg bg-primary text-primary-foreground"
+          >
+            <ScanBarcodeIcon className="h-5 w-5" />
+          </Button>
         </div>
 
         {/* Section khusus lines */}
         <div className="mt-8">
-          <div className="grid grid-cols-2 gap-6 place-items-center md:place-items-stretch md:grid-cols-2 lg:grid-cols-4">
-            <LinesAssy
-              count={data?.ASSY?.units ?? 0}
-              amount={data?.ASSY?.personnel ?? 0}
-            />
-            <LinesWiring
-              count={data?.WIRING?.units ?? 0}
-              amount={data?.WIRING?.personnel ?? 0}
-            />
-            <LinesQC
-              count={data?.QC?.units ?? 0}
-              amount={data?.QC?.personnel ?? 0}
-            />
-            <LinesPacking
-              count={data?.PACK?.units ?? 0}
-              amount={data?.PACK?.personnel ?? 0}
-            />
+          <div className="grid grid-cols-2 gap-6 place-items-center md:place-items-stretch md:grid-cols-2 lg:grid-cols-4 cursor-pointer">
+            <div
+              onClick={() => {
+                setProcessType("ASSY");
+                setActivePage("lineslog");
+              }}
+            >
+              <LinesAssy
+                count={data?.ASSY?.units ?? 0}
+                amount={data?.ASSY?.personnel ?? 0}
+              />
+            </div>
+            <div
+              onClick={() => {
+                setActivePage("lineslog");
+                setProcessType("WIRING");
+              }}
+            >
+              <LinesWiring
+                count={data?.WIRING?.units ?? 0}
+                amount={data?.WIRING?.personnel ?? 0}
+              />
+            </div>
+            <div
+              onClick={() => {
+                setActivePage("lineslog");
+                setProcessType("QC");
+              }}
+            >
+              <LinesQC
+                count={data?.QC?.units ?? 0}
+                amount={data?.QC?.personnel ?? 0}
+              />
+            </div>
+            <div
+              onClick={() => {
+                setActivePage("lineslog");
+                setProcessType("FINISH");
+              }}
+            >
+              <LinesPacking
+                count={data?.FINISH?.units ?? 0}
+                amount={data?.FINISH?.personnel ?? 0}
+              />
+            </div>
           </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">
-          {getRoleAccess()
-            .filter((item) => item.page !== "scan")
-            .map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <Card
-                  key={index}
-                  className="hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => setActivePage(item.page)}
-                >
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                        <Icon className="h-5 w-5 text-primary" />
+          {user?.role === "ADMIN" && (
+            <div className="lg:col-span-1">
+              <ChartBar />
+            </div>
+          )}
+
+          <div className="lg:col-span-2 gap-6 grid md:grid-cols-2">
+            {getRoleAccess()
+              .filter((item) => item.page !== "scan")
+              .map((item, index) => {
+                const Icon = item.icon;
+                return (
+                  <Card
+                    key={index}
+                    className="hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => setActivePage(item.page)}
+                  >
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                          <Icon className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">
+                            {item.title}
+                          </CardTitle>
+                          <CardDescription>{item.desc}</CardDescription>
+                        </div>
                       </div>
-                      <div>
-                        <CardTitle className="text-lg">{item.title}</CardTitle>
-                        <CardDescription>{item.desc}</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                </Card>
-              );
-            })}
+                    </CardHeader>
+                  </Card>
+                );
+              })}
+          </div>
         </div>
 
         <div className="mt-8">
@@ -239,7 +290,9 @@ export function Dashboard() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Code className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Kode: {user?.uniqCode}</span>
+                  <span className="text-sm text-muted-foreground">
+                    Kode: {user?.uniqCode}
+                  </span>
                 </div>
               </div>
             </div>

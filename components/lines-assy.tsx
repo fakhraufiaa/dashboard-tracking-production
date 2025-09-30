@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Users, Zap } from "lucide-react";
 
+
 type Props = {
   count: number;
   amount: number;
@@ -17,17 +18,17 @@ export default function LinesAssy({ count, amount }: Props) {
       <div
         className="
           md:hidden flex flex-col items-center justify-center
-          h-24 w-24 rounded-full
-          bg-gradient-to-br from-chart-3 to-chart-4
-          shadow-lg ring-5 ring-chart-3/40
+          h-20 w-40 rectangle-full
+          bg-gradient-to-br from-chart-4 to-chart-3
+          shadow-lg
           relative mx-auto
         "
       >
-        <span className="text-[10px] font-medium tracking-wide">ASSY</span>
+        <span className="text-[10px] font-medium tracking-wide justify-between">ASSY</span>
+        {/* <Badge className="text-xs bg-secondary">ASSY</Badge> */}
         <span className="text-xl font-extrabold">{count}</span>
       </div>
-
-      {/* 💻 Desktop card */}
+        {/* 💻 Desktop card */}
       <Card
         className="
           hidden md:block transition-all hover:shadow-md
@@ -55,6 +56,7 @@ export default function LinesAssy({ count, amount }: Props) {
         </CardContent>
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-chart-1 opacity-70" />
       </Card>
+      
     </>
   );
 }

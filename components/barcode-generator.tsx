@@ -51,7 +51,7 @@ export function BarcodeGenerator({ onBack }: BarcodeGeneratorProps) {
     "WD",
     "WB",
     "QC",
-    "PACK",
+    "FINISH",
   ];
 
   // ✅ Ambil daftar ProductionUnit

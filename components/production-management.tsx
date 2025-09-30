@@ -156,41 +156,19 @@ export function ProductionManagement({ onBack }: ProductionManagementProps) {
             .uniq {
               font-size: 16px;
               font-weight: bold;
-              margin-bottom: 8px;
+              margin-bottom: 2px;
               text-align: center;
-              min-height: 40px; 
-              line-height: 40px;
-            }
-            .zigzag {
-              display: flex;
-              flex-direction: column;
-              width: 100%;
-              height: 100%;
-            }
-            .left,
-            .right {
-              display: flex;
-              width: 100%;
-              flex: 1;
-            }
-            .left {
-              justify-content: flex-start;
-            }
-            .right {
-              justify-content: flex-end;
-            }
-            .block {
+              min-height: 20px; 
+              line-height: 20px;
+            } 
+              .block {
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: center;
-              width: 50%;
-              height: 100%;
-              margin-bottom: 8px;
-            }
-            .process {
-              font-size: 6px;
-              font-weight: bold;
+              width: 50%;   
+              height: 100%;  
+              margin-bottom: 2px;
             }
             .barcode svg {
               width: 100%;   

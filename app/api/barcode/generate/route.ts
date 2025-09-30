@@ -3,14 +3,13 @@ import { $Enums, PrismaClient, ProcessType } from "@prisma/client";
 import JsBarcode from "jsbarcode";
 import { JSDOM } from "jsdom";
 import dayjs from "dayjs";
-import { Barcode } from "lucide-react";
 
 export const runtime = "nodejs";
 
 const prisma = new PrismaClient();
 
 const processTypes: ProcessType[] = [
-  "INV", "SCC", "BATT", "PD", "PB", "WD", "WB", "QC", "PACK"
+  "INV", "SCC", "BATT", "PD", "PB", "WD", "WB", "QC", "FINISH"
 ];
 
 export async function POST(req: NextRequest) {
@@ -53,7 +52,8 @@ export async function POST(req: NextRequest) {
       // buat SVG
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 
-      const fullCode = `${baseCode}-${proc}-${dateStr}`;
+      const displayProc = proc === "FINISH" ? "FNSH" : proc;
+      const fullCode = `${baseCode}${displayProc}${dateStr}`; 
 
       JsBarcode(svg, fullCode, {
         format: "CODE128",

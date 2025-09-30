@@ -1,5 +1,8 @@
 // Enums
 // lib/type.ts
+
+
+
 export interface LineGroup {
   units: number
   personnel: number
@@ -9,15 +12,8 @@ export interface LinesData {
   ASSY: LineGroup
   WIRING: LineGroup
   QC: LineGroup
-  PACK: LineGroup
+  FINISH: LineGroup
 }
-
-type LineItem = {
-  timestamp: string // ISO string atau epoch
-  value: number
-}
-
-
 
 export enum Role {
   ADMIN = "ADMIN",
@@ -35,7 +31,7 @@ export enum ProcessType {
   WD = "WD",
   WB = "WB",
   QC = "QC",
-  PACK = "PACK",
+  FINISH = "FINISH",
 }
 
 // User

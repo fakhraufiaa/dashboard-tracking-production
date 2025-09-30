@@ -28,9 +28,11 @@ export async function POST(req: NextRequest) {
 
     for (const unit of units) {
       for (const proc of Object.values(ProcessType)) {
+        if (proc === "PACK") continue; // skip PACK
         const [prodCode, unitCode] = unit.uniqCode.split("-")
         const baseCode = `${prodCode.slice(-2)}${unitCode}`
-        const uniqCode = `${baseCode}-${proc}-${dayjs().format("DDMM")}`
+        const displayProc = proc === "FINISH" ? "FNSH" : proc;
+        const uniqCode = `${baseCode}${displayProc}${dayjs().format("DDMM")}`;
 
         // generate SVG
        const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
         genData.push({
           productionUnitId: unit.id,
           uniqCode,
-          process: proc as ProcessType,
+          process: proc,
           jsBarcode: svgStr,
         })
       }

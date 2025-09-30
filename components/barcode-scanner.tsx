@@ -24,7 +24,7 @@ import {
 
 
 interface BarcodeScannerProps {
-  onBack: () => void
+  onBack: ()  => void
 }
 
 interface ScanResult {

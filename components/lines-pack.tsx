@@ -17,13 +17,13 @@ export default function LinesPacking({ count, amount }: Props) {
       <div
         className="
           md:hidden flex flex-col items-center justify-center
-          h-24 w-24 rounded-full
-          bg-gradient-to-br from-chart-3 to-chart-4
-          shadow-lg ring-5 ring-chart-3/40
+          h-20 w-40 rectangle-full
+          bg-gradient-to-br from-chart-4 to-chart-3
+          shadow-lg 
           relative mx-auto
         "
       >
-        <span className="text-[10px] font-medium tracking-wide">FINISHING</span>
+        <span className="text-[10px] font-medium tracking-wide">FINISH</span>
         <span className="text-xl font-extrabold">{count}</span>
       </div>
 
@@ -36,7 +36,7 @@ export default function LinesPacking({ count, amount }: Props) {
       >
         <CardHeader>
           <div className="flex items-center justify-between">
-            <Badge className="text-xs bg-secondary">FINISHING</Badge>
+            <Badge className="text-xs bg-secondary">FINISH</Badge>
             <Zap className="h-4 w-4 text-secondary" />
           </div>
         </CardHeader>
