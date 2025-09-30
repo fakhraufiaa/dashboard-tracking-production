@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { getToday6am } from "./time"
+import { getTodayRangeUTC } from "./time"
 
 type ScanResult = {
   productionUnitId: number
@@ -15,11 +15,12 @@ const processes = {
   FINISH: ["FINISH"],
 }
 
+// --- Summary per line ---
 export async function getLinesSummary() {
-  const today6am = getToday6am()
+  const { start, end } = getTodayRangeUTC()
 
   const scans = await prisma.infoScanProduction.findMany({
-    where: { createdAt: { gte: today6am } },
+    where: { createdAt: { gte: start, lt: end } },
     include: { genProductionUnit: true },
   })
 
@@ -73,11 +74,12 @@ export async function getLinesSummary() {
   }
 }
 
+// --- List unit terbaru per process ---
 export async function getListUnitsToday() {
-  const today6am = getToday6am()
+  const { start, end } = getTodayRangeUTC()
 
   const scans = await prisma.infoScanProduction.findMany({
-    where: { createdAt: { gte: today6am } },
+    where: { createdAt: { gte: start, lt: end } },
     include: {
       genProductionUnit: { include: { productionUnit: true } },
       user: true,

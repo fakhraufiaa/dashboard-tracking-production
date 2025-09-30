@@ -1,26 +1,37 @@
 import dayjs from "@/lib/dayjs"
 
+export function nowJakarta() {
+  return dayjs().tz("Asia/Jakarta")
+}
+
 /**
- * Ambil tanggal jam 6 pagi terakhir.
- * Kalau sekarang < jam 6 → ambil kemarin 06:00
- * Kalau sekarang >= jam 6 → ambil hari ini 06:00
+ * Ambil range harian 06:00 WIB → 06:00 WIB (UTC biar cocok sama DB)
  */
+export function getTodayRangeUTC() {
+  let startJakarta = nowJakarta().hour(6).minute(0).second(0).millisecond(0)
 
-export function getToday6am() {
-  // ambil jam 6 pagi Asia/Jakarta
-  let base = dayjs().hour(6).minute(0).second(0).millisecond(0)
+  if (nowJakarta().hour() < 6) {
+    startJakarta = startJakarta.subtract(1, "day")
+  }
 
-  // kalau sekarang sebelum jam 6, mundurkan ke hari sebelumnya
-  if (dayjs().hour() < 6) {
+  const endJakarta = startJakarta.add(1, "day")
+
+  return {
+    start: startJakarta.utc().toDate(),
+    end: endJakarta.utc().toDate(),
+  }
+}
+
+/**
+ * Ambil tanggal (YYYY-MM-DD) berdasarkan 06:00 WIB terakhir
+ * → dipakai untuk state reset frontend
+ */
+export function getToday6amStr(): string {
+  let base = nowJakarta().hour(6).minute(0).second(0).millisecond(0)
+
+  if (nowJakarta().hour() < 6) {
     base = base.subtract(1, "day")
   }
 
-  // convert ke UTC biar sama dengan yang di DB
-  return base.utc().toDate()
-}
-/**
- * Helper: return string YYYY-MM-DD dari jam 6 pagi terakhir
- */
-export function getToday6amStr(): string {
-  return dayjs(getToday6am()).format("YYYY-MM-DD")
+  return base.format("YYYY-MM-DD")
 }
