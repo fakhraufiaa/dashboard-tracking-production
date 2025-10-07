@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useAuth } from "./auth-provider";
 
 interface ProcessLoggingProps {
   onBack: () => void;
@@ -76,6 +77,7 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectAll, setSelectAll] = useState(false);
   const [scanLogs, setScanLogs] = useState<ScanLog[]>([]);
+  const { user } = useAuth();
 
   const checklistFields = [
     "uji_input",
@@ -242,7 +244,7 @@ export function ProcessLogging({ onBack, goToPage }: ProcessLoggingProps) {
         method: "POST",
         body: JSON.stringify({
           productionUnitId: unitId,
-          qcUserId: 1, // TODO: ganti qcUserId sesuai user login
+          qcUserId: user?.id, // TODO: ganti qcUserId sesuai user login
           checklist,
         }),
       });

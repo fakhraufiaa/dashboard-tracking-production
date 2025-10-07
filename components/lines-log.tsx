@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Loader2, Eye, Trash2, ArrowLeft, Search } from "lucide-react"
 import { useSearchParams } from "next/navigation"
-import { Input } from "./ui/input"
+
 
 type ProcessType = "ASSY" | "WIRING" | "QC" | "FINISH"
 
@@ -82,7 +82,6 @@ export function PageListLinesLog({ onBack, processType}: LinesLoggingProps) {
                 <TableRow>
                   <TableHead>No</TableHead>
                   <TableHead>Unit ID</TableHead>
-                  <TableHead>PIC</TableHead>
                   <TableHead>Tanggal Terbaru</TableHead>
                 </TableRow>
               </TableHeader>
@@ -101,7 +100,6 @@ export function PageListLinesLog({ onBack, processType}: LinesLoggingProps) {
                     <TableRow key={u.productionUnitId}>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>{u.uniqCode}</TableCell>
-                      <TableCell className="font-medium">{u.PIC}</TableCell>
                       <TableCell>
                         {new Date(u.createdAt).toLocaleString("id-ID")}
                       </TableCell>

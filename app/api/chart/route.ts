@@ -9,10 +9,15 @@ import {
 } from "date-fns"
 import dayjs from "@/lib/dayjs"
 
-
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const now = dayjs().toDate()
+    const { searchParams } = new URL(req.url)
+    const monthParam = searchParams.get("month") // contoh "2025-09" (YYYY-MM)
+
+    // kalau ada query bulan, pakai itu, kalau tidak pakai bulan sekarang
+    const baseDate = monthParam ? dayjs(monthParam + "-01") : dayjs()
+    const now = baseDate.toDate()
+
     const monthStart = startOfMonth(now)
     const monthEnd = endOfMonth(now)
 
@@ -21,41 +26,39 @@ export async function GET() {
       include: { genUnits: true },
     })
 
-    // kita akan akumulasi jumlah unit yang "selesai semua proses" per minggu
+    // akumulasi jumlah unit yang selesai semua proses per minggu
     const weekCounts: Record<number, number> = {}
 
     for (const unit of units) {
       const genUnits = unit.genUnits
       if (!genUnits || genUnits.length === 0) continue
 
-      // cek apakah semua genUnits untuk unit ini status === true
-      const allTrue = genUnits.every(g => g.status === true)
-      if (!allTrue) continue // kalau belum semua true, tidak dihitung
+      // cek semua genUnits status === true
+      const allTrue = genUnits.every((g) => g.status === true)
+      if (!allTrue) continue
 
-      // tentukan completion date sebagai waktu terbaru (max updatedAt) dari genUnits
-      const maxMs = Math.max(...genUnits.map(g => g.updatedAt.getTime()))
+      // ambil completion date = max updatedAt
+      const maxMs = Math.max(...genUnits.map((g) => g.updatedAt.getTime()))
       const completionDate = new Date(maxMs)
 
-      // hanya hitung jika completionDate di dalam bulan yang diminta
+      // hanya hitung jika completionDate di bulan terpilih
       if (completionDate < monthStart || completionDate > monthEnd) continue
 
-      // hitung minggu di dalam bulan dari completionDate
-      const weekNumber = getWeekOfMonth(completionDate, { weekStartsOn: 0 }) // weekStartsOn:0 => minggu mulai Minggu
+      const weekNumber = getWeekOfMonth(completionDate, { weekStartsOn: 0 })
       weekCounts[weekNumber] = (weekCounts[weekNumber] || 0) + 1
     }
 
-    // hitung jumlah minggu dalam bulan (misal bisa 4 atau 5)
+    // hitung total minggu
     const totalWeeks =
       differenceInCalendarWeeks(monthEnd, monthStart, { weekStartsOn: 0 }) + 1
 
-    // pastikan semua minggu muncul meskipun count = 0
     const data = Array.from({ length: totalWeeks }, (_, i) => {
       const week = i + 1
       return { week, count: weekCounts[week] || 0 }
     })
 
     return NextResponse.json({
-        month: now.toLocaleString("default", { month: "long" }),
+      month: now.toLocaleString("default", { month: "long" }),
       data,
     })
   } catch (e) {

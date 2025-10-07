@@ -7,7 +7,13 @@ export async function GET() {
     const units = await prisma.productionUnit.findMany({
       include: {
         genUnits: true,
-        processQc: true,
+        processQc: { 
+          include: {
+            logs: {
+              include: { qcUser: true },
+              orderBy: { createdAt: "desc" },
+            },
+          },}
       },
       orderBy: { createdAt: "desc" },
     })
@@ -20,6 +26,7 @@ export async function GET() {
 }
 
 // ✅ Update / Insert QC
+// ✅ Update / Insert QC
 export async function POST(req: Request) {
   try {
     const { productionUnitId, qcUserId, checklist } = await req.json()
@@ -27,32 +34,40 @@ export async function POST(req: Request) {
     // update atau create ProcessQc
     const qc = await prisma.processQc.upsert({
       where: { productionUnitId },
-      update: {
-        ...checklist,
-      },
+      update: { ...checklist },
       create: {
         productionUnitId,
         ...checklist,
       },
     })
 
-    // log setiap checklist yang diubah
+    // log tiap checklist dengan upsert → update kalau sudah ada
     const logs = await Promise.all(
-      Object.keys(checklist).map((key) =>
-        prisma.processQcLog.create({
-          data: {
+      Object.entries(checklist).map(([key, value]) =>
+        prisma.processQcLog.upsert({
+          where: {
+            processQcId_action: {
+              processQcId: qc.id,
+              action: key,
+            },
+          },
+          update: {
+            status: Boolean(value),
+          },
+          create: {
             processQcId: qc.id,
             qcUserId,
             action: key,
-            status: checklist[key],
+            status: Boolean(value),
           },
         })
       )
     )
 
-    return NextResponse.json({ qc, logs })
-  } catch  {
-    console.error()
+    return NextResponse.json({ data: qc, logs })
+  } catch (error) {
+    console.error(error)
     return NextResponse.json({ error: "Failed to update QC" }, { status: 500 })
   }
 }
+

@@ -78,7 +78,7 @@ model Production {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    @@map("production_units")
+    @@map("production_units") 
   }
 
 model GenProductionUnit {
@@ -144,6 +144,8 @@ model ProcessQcLog {
   qcUser    User      @relation(fields: [qcUserId], references: [id])
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([processQcId, action], name: "processQcId_action")
   @@map("process_qc_logs")
 }
