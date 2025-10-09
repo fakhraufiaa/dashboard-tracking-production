@@ -52,7 +52,6 @@ interface BarData {
   count: number;
 }
 
-
 export function ChartBar() {
   const { user } = useAuth();
   const [chartData, setChartData] = useState<BarData[]>([]);
@@ -60,66 +59,71 @@ export function ChartBar() {
   const [monthLabel, setMonthLabel] = useState<string>(); // nama bulan (Oktober, September, dst.)
   const [months, setMonths] = useState<string[]>([]); // dari
 
-  const fetchData = async (selectedMonth: string) => {
-    try {
-      const res = await fetch(`/api/chart?month=${selectedMonth}`);
-      const json = await res.json();
-      setChartData(json.data);
-      setMonthLabel(json.month); // nama bulan dari backend
-    } catch (e) {
-      console.error("Failed to load bar chart data:", e);
-    }
-  };
+  // const fetchData = async (selectedMonth: string) => {
+  //   try {
+  //     const res = await fetch(`/api/chart?month=${selectedMonth}`);
+  //     const json = await res.json();
+  //     setChartData(json.data);
+  //     setMonthLabel(json.month); // nama bulan dari backend
+  //   } catch (e) {
+  //     console.error("Failed to load bar chart data:", e);
+  //   }
+  // };
 
   useEffect(() => {
-    // Ambil daftar bulan dari API
+    // ambil daftar bulan dari api (sekali)
     fetch("/api/chart/month")
       .then((res) => res.json())
       .then((data) => {
         setMonths(data.data);
         const current = format(new Date(), "yyyy-MM");
-        if (data.data.includes(current)) {
-          setMonth(current);
-          fetchData(current);
-        } else {
-          // fallback ke bulan terakhir di list
-          const lastMonth = data.data[data.data.length - 1];
-          setMonth(lastMonth);
-          fetchData(lastMonth);
-        }
+        const initial = data.data.includes(current)
+          ? current
+          : data.data[data.data.length - 1];
+        setMonth(initial);
       });
   }, []);
 
-
   useEffect(() => {
-    if (month) {
-      fetchData(month);
-    }
-  }, [month]);
+    if (!month) return;
+    const source = new EventSource(`/api/chart/realtime?month=${month}`);
 
+    source.onmessage = (event) => {
+      const payload = JSON.parse(event.data);
+      setChartData(payload.data);
+      setMonthLabel(payload.month);
+    };
+
+    source.onerror = (err) => {
+      console.error("SSE error:", err);
+      source.close();
+    };
+
+    return () => source.close();
+  }, [month]);
 
   return (
     <Card>
       <CardHeader>
-  <CardTitle>Bar Chart - Production</CardTitle>
-  <CardDescription>
-    {(user?.role as string) === "ADMIN" && (
-      <Select value={month} onValueChange={setMonth}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Select month" />
-        </SelectTrigger>
-        <SelectContent>
-          {months.map((m) => (
-            <SelectItem key={m} value={m}>
-              {m}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    )}
-    <span className="ml-2 text-muted-foreground">{monthLabel}</span>
-  </CardDescription>
-</CardHeader>
+        <CardTitle>Bar Chart - Production</CardTitle>
+        <CardDescription>
+          {(user?.role as string) === "ADMIN" && (
+            <Select value={month} onValueChange={setMonth}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select month" />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <span className="ml-2 text-muted-foreground">{monthLabel}</span>
+        </CardDescription>
+      </CardHeader>
 
       <CardContent>
         <ChartContainer config={chartConfig}>
@@ -172,7 +176,9 @@ export function ChartBar() {
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         {(() => {
-          const totalCount = chartData.reduce((sum, d) => sum + d.count, 0);
+          const totalCount =
+            chartData?.reduce((sum, d) => sum + (d.count ?? 0), 0) ?? 0;
+
           if (totalCount === 0) {
             return (
               <div className="flex gap-2 leading-none font-medium">
@@ -187,7 +193,7 @@ export function ChartBar() {
           );
         })()}
         <div className="text-muted-foreground leading-none">
-          Showing total production for {chartData.length ?? 0} weeks
+          Showing total production for {chartData?.length ?? 0} weeks
         </div>
       </CardFooter>
     </Card>
