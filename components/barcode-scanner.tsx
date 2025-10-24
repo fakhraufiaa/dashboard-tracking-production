@@ -222,8 +222,8 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    className="w-full max-w-3xl mx-auto"
-                    style={{ aspectRatio: "16/5", objectFit: "cover" }}
+                    className="w-full max-w-3xl mx-auto transform scale-x-[3]"
+                    style={{ aspectRatio: "16/5", objectFit: "cover", transform: "scaleY(3)", transformOrigin: "center center" }}
                   />
                   {isLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -233,6 +233,9 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
                   )}
                   {/* Kotak merah horizontal */}
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5 h-20 border-4 border-red-500 rounded"></div>
+                  {/* Overlays untuk menutupi area di luar fokus */}
+                    <div className="absolute top-0 left-0 w-full h-[calc(50%-40px)] bg-black/60 z-10"></div> {/* Overlay atas */}
+                    <div className="absolute bottom-0 left-0 w-full h-[calc(50%-40px)] bg-black/60 z-10"></div> {/* Overlay bawah */}
                 </div>
               ) : (
                 <div className="flex items-center justify-center aspect-video">
