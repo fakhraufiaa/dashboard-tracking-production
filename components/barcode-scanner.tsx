@@ -225,11 +225,11 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
           videoRef.current.onloadedmetadata = () => {
               videoRef.current?.play();
               
-              // Hapus interval lama jika ada
-              if (intervalIdRef.current) clearInterval(intervalIdRef.current);
-              
-              // Mulai interval pemindaian cropping
-              intervalIdRef.current = setInterval(captureFrameAndCrop, SCAN_INTERVAL_MS);
+              /// Tambahkan sedikit delay, misalnya 500ms, untuk memastikan frame sudah tersedia
+        setTimeout(() => {
+             if (intervalIdRef.current) clearInterval(intervalIdRef.current);
+             intervalIdRef.current = setInterval(captureFrameAndCrop, SCAN_INTERVAL_MS);
+        }, 500);
           };
       }
     } catch (error) {
@@ -355,15 +355,22 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Scanner */}
         <Card>
+          {/* Canvas tersembunyi untuk cropping */}
+          <canvas 
+            ref={hiddenCanvasRef} 
+            // style={{ border: '2px solid blue', marginTop: '1rem', width: 300, height: 'auto'}} 
+            style={{display: 'none'}}
+          />
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Scan className="h-5 w-5" />
-              Scanner Barcode (Cropped)
+              Scanner Barcode 
             </CardTitle>
             <CardDescription>
               Hanya memindai area di dalam kotak merah
             </CardDescription>
           </CardHeader>
+          
           <CardContent className="space-y-4">
             <div className="relative bg-muted rounded-lg overflow-hidden">
               {isScanning ? (
@@ -376,12 +383,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
                     muted
                     className="w-full max-w-3xl mx-auto"
                     style={{ aspectRatio: "16/5", objectFit: "cover"}}
-                  />
-                  {/* Canvas tersembunyi untuk cropping */}
-                  <canvas 
-                      ref={hiddenCanvasRef} 
-                      style={{ display: 'none' }} 
-                  />
+                  />     
 
                   {isLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -392,7 +394,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
                   {/* Kotak merah horizontal - Ini sekarang hanya VISUAL */}
                   <div 
                       ref={cropOverlayRef}
-                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5 h-20 border-4 border-red-500 rounded"
+                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/7 h-20 border-4 border-red-500 rounded"
                   ></div>
                   {/* Overlays untuk menutupi area di luar fokus */}
                   {/* NOTE: Overlays ini mungkin tidak akurat karena video object-fit: cover */}
