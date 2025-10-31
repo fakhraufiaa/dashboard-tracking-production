@@ -17,11 +17,11 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/lib/use-toast"
 import { ArrowLeft, Camera, CameraOff, Loader2, Scan } from "lucide-react"
 import {
-  BrowserMultiFormatReader,
   BarcodeFormat,
   DecodeHintType,
+  Result
 } from "@zxing/library"
-
+import { BrowserMultiFormatReader } from "@zxing/browser"
 
 interface BarcodeScannerProps {
   onBack: ()  => void
@@ -34,6 +34,11 @@ interface ScanResult {
   status: boolean
 }
 
+const DESIRED_CROP_WIDTH = 480;
+const DESIRED_CROP_HEIGHT = 160;
+const CROP_AREA_FACTOR = 0.5;
+const SCAN_INTERVAL_MS = 100;
+
 export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
   const [isScanning, setIsScanning] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -42,32 +47,144 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [isBackCamera, setIsBackCamera] = useState(true) 
   const [pendingBarcode, setPendingBarcode] = useState<ScanResult | null>(null)
-  // const lastScanRef = useRef<string | null>(null)
-  const scanCooldownRef = useRef<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null)
+  const cropOverlayRef = useRef<HTMLDivElement>(null)
+  const hiddenCanvasRef = useRef<HTMLCanvasElement>(null)
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
+  const scanCooldownRef = useRef<boolean>(false);
 
   useEffect(() => {
+    if (!codeReaderRef.current) {
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128]);
+      codeReaderRef.current = new BrowserMultiFormatReader(hints);
+    }
     return () => {
       stopScanning()
     }
   }, [])
+
+  const captureFrameAndCrop = () => {
+    const video = videoRef.current;
+      const overlayDiv = cropOverlayRef.current;
+      const displayCanvas = hiddenCanvasRef.current; // Gunakan canvas tersembunyi
+
+      if (!video || !displayCanvas || !overlayDiv || !codeReaderRef.current || video.videoWidth === 0) return;
+
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      const videoRatio = videoWidth / videoHeight;
+      
+      const tempCanvas = document.createElement("canvas");
+      const tempContext = tempCanvas.getContext("2d");
+      if (!tempContext) return;
+      
+      // 1. Gambar frame video penuh ke canvas sementara
+      tempCanvas.width = videoWidth;
+      tempCanvas.height = videoHeight;
+      tempContext.drawImage(video, 0, 0, videoWidth, videoHeight);
+
+      // --- Perhitungan Crop (Meniru Kotak Merah Anda) ---
+      // Asumsi rasio kotak merah Anda kira-kira 16:5
+      const DESIRED_RATIO = 16 / 5; 
+      
+      let cropWidth: number, cropHeight: number;
+
+      // Ambil ukuran crop yang proporsional
+      if (videoRatio / DESIRED_RATIO > 1) {
+          // Video lebih lebar, batasi oleh tinggi video
+          cropHeight = videoHeight * CROP_AREA_FACTOR;
+          cropWidth = cropHeight * DESIRED_RATIO;
+      } else {
+          // Video lebih tinggi, batasi oleh lebar video
+          cropWidth = videoWidth * CROP_AREA_FACTOR;
+          cropHeight = cropWidth / DESIRED_RATIO;
+      }
+
+      // Pastikan crop tidak melebihi dimensi video
+      cropWidth = Math.min(cropWidth, videoWidth);
+      cropHeight = Math.min(cropHeight, videoHeight);
+
+      // Pastikan dimensi crop minimal untuk zxing
+      // Angka ini bisa disesuaikan, tapi pastikan cukup besar
+      const MIN_CROP_DIMENSION = 100; 
+      cropWidth = Math.max(MIN_CROP_DIMENSION, cropWidth);
+      cropHeight = Math.max(MIN_CROP_DIMENSION, cropHeight);
+      
+      // Hitung posisi crop agar berada di tengah
+      const cropX = (videoWidth - cropWidth) / 2;
+      const cropY = (videoHeight - cropHeight) / 2;
+
+      // 2. Potong area ke canvas yang akan discan (hiddenCanvasRef)
+      displayCanvas.width = cropWidth;
+      displayCanvas.height = cropHeight;
+      const displayContext = displayCanvas.getContext("2d");
+      if (!displayContext) return;
+
+      displayContext.drawImage(
+          tempCanvas,
+          cropX,
+          cropY,
+          cropWidth,
+          cropHeight,
+          0,
+          0,
+          cropWidth,
+          cropHeight
+      );
+      
+      // 3. (Opsional, tapi penting) Update posisi overlay merah agar sesuai dengan perhitungan crop
+      // Karena video div Anda memiliki objectFit: 'cover' dan aspect-ratio,
+      // kita perlu memastikan kotak merah (visual) sesuai dengan area crop (perhitungan)
+      // NOTE: Style CSS di JSX Anda menggunakan rasio 16/5 dan nilai absolut 'w-4/5 h-20'
+      // Perhitungan di atas mencoba mendekati nilai itu secara proporsional dari video.
+      // Untuk memastikan visual dan logika sama, Anda harus konsisten.
+      
+      // Asumsi lebar div video 100% dan tinggi diatur oleh aspect-ratio: "16/5"
+      // Kita perlu proporsi cropX/cropWidth relatif terhadap ukuran video
+      
+      // Kita biarkan saja CSS Anda (top-1/2... w-4/5 h-20) untuk tampilan visual
+      // dan hanya gunakan perhitungan di atas untuk zxing.
+      // Jika Anda ingin *overlay* yang akurat, Anda harus menggunakan perhitungan
+      // proporsional seperti yang dilakukan di contoh awal Anda, bukan CSS hard-coded.
+      
+      // --- Pemindaian ---
+      const decodeCanvas = async () => {
+          try {
+              const result: Result = await codeReaderRef.current!.decodeFromCanvas(displayCanvas);
+              console.log("Decoded barcode (CROPPED):", result.getText());
+              // Hentikan interval scan setelah berhasil
+              if (intervalIdRef.current) clearInterval(intervalIdRef.current);
+              intervalIdRef.current = null;
+              handleScanSuccess(result.getText());
+          } catch (err: unknown) {
+              if (err instanceof Error && err.name !== "NotFoundException") {
+                  console.error("Decoding error:", err);
+              }
+          }
+      };
+
+      decodeCanvas();
+  }
 
   const startScanning = async () => {
     try {
       setCameraError(null)
       setIsScanning(true)
 
-      // ✅ Fokus hanya ke CODE_128 biar cepat
-      const hints = new Map()
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
-
+      // Pastikan codeReader sudah diinisialisasi
       if (!codeReaderRef.current) {
-        codeReaderRef.current = new BrowserMultiFormatReader(hints)
+         // ini tidak perlu karena sudah di useEffect, tapi sebagai fallback
+         const hints = new Map();
+         hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128]);
+         codeReaderRef.current = new BrowserMultiFormatReader(hints);
       }
+      const reader = codeReaderRef.current;
+      if (!reader) return; // Seharusnya sudah diinisialisasi
 
-      const videoInputDevices = await codeReaderRef.current.listVideoInputDevices()
+      const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices()
       setDevices(videoInputDevices)
 
       if (videoInputDevices.length === 0) throw new Error("Tidak ada kamera tersedia")
@@ -77,7 +194,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
         : videoInputDevices[0].deviceId
 
       // ✅ Set constraints untuk resolusi kamera
-      const constraints = {
+      const constraints : MediaStreamConstraints = {
         video: {
           deviceId: { exact: deviceId },
           width: { ideal: 1280 },   // bisa coba 1920
@@ -86,30 +203,61 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
         },
       }
 
-      codeReaderRef.current.decodeFromConstraints(
-        constraints,
-        videoRef.current!,
-        (result, error) => {
-          if (result) {
-            console.log("📷 RAW hasil scan:", result.getText())
-            handleScanSuccess(result.getText())
-          }
-          if (error && !(error.name === "NotFoundException")) {
-            console.error("Scan error:", error)
-          }
-        }
-      )
+      //ini kalau mau di uncomment juga gapapa
+      // codeReaderRef.current.decodeFromConstraints(
+      //   constraints,
+      //   videoRef.current!,
+      //   (result, error) => {
+      //     if (result) {
+      //       console.log("📷 RAW hasil scan:", result.getText())
+      //       handleScanSuccess(result.getText())
+      //     }
+      //     if (error && !(error.name === "NotFoundException")) {
+      //       console.error("Scan error:", error)
+      //     }
+      //   }
+      // )
+
+      // Mulai stream kamera
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+              videoRef.current?.play();
+              
+              // Hapus interval lama jika ada
+              if (intervalIdRef.current) clearInterval(intervalIdRef.current);
+              
+              // Mulai interval pemindaian cropping
+              intervalIdRef.current = setInterval(captureFrameAndCrop, SCAN_INTERVAL_MS);
+          };
+      }
     } catch (error) {
       console.error("Camera error:", error)
       setCameraError(error instanceof Error ? error.message : "Gagal mengakses kamera")
       setIsScanning(false)
+      if (intervalIdRef.current) clearInterval(intervalIdRef.current);
     }
   }
 
+
+
   const stopScanning = () => {
+
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current);
+      intervalIdRef.current = null;
+    }
+
+    if ( videoRef.current?.srcObject ) {
+      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      tracks.forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+
     if (codeReaderRef.current) {
-      codeReaderRef.current.reset();
-      codeReaderRef.current = null;
+      // codeReaderRef.current.reset();
+      // codeReaderRef.current = null;
     }
     setIsScanning(false);
     setIsLoading(false);
@@ -123,6 +271,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
     setTimeout(() => { scanCooldownRef.current = false }, 2000)
 
     console.log("📷 Scan:", cleanBarcode)
+    stopScanning();
 
     try {
       // 🔎 preview dulu data barcode (tanpa insert ke DB)
@@ -142,6 +291,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
           description: data.error || "Barcode tidak valid",
           variant: "destructive",
         })
+        startScanning();
       }
     } catch {
       toast({
@@ -149,6 +299,7 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
         description: "Gagal memproses barcode",
         variant: "destructive",
       })
+      startScanning();
     }
   }
 
@@ -207,10 +358,10 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Scan className="h-5 w-5" />
-              Scanner Barcode
+              Scanner Barcode (Cropped)
             </CardTitle>
             <CardDescription>
-              Gunakan kamera untuk memindai barcode
+              Hanya memindai area di dalam kotak merah
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -222,20 +373,32 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
                     ref={videoRef}
                     autoPlay
                     playsInline
+                    muted
                     className="w-full max-w-3xl mx-auto"
                     style={{ aspectRatio: "16/5", objectFit: "cover"}}
                   />
+                  {/* Canvas tersembunyi untuk cropping */}
+                  <canvas 
+                      ref={hiddenCanvasRef} 
+                      style={{ display: 'none' }} 
+                  />
+
                   {isLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                       <Loader2 className="h-6 w-6 text-white animate-spin" />
                       <span className="ml-2 text-white">Memproses...</span>
                     </div>
                   )}
-                  {/* Kotak merah horizontal */}
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5 h-20 border-4 border-red-500 rounded"></div>
+                  {/* Kotak merah horizontal - Ini sekarang hanya VISUAL */}
+                  <div 
+                      ref={cropOverlayRef}
+                      className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5 h-20 border-4 border-red-500 rounded"
+                  ></div>
                   {/* Overlays untuk menutupi area di luar fokus */}
-                    <div className="absolute top-0 left-0 w-full h-[calc(50%-70px)] bg-black/100 z-10"></div> {/* Overlay atas */}
-                    <div className="absolute bottom-0 left-0 w-full h-[calc(50%-70px)] bg-black/100 z-10"></div> {/*Overlay bawah */}
+                  {/* NOTE: Overlays ini mungkin tidak akurat karena video object-fit: cover */}
+                  {/* Untuk menyederhanakan, kita biarkan saja visual ini: */}
+                  <div className="absolute top-0 left-0 w-full h-[calc(50%-70px)] bg-black/50 z-10"></div> {/* Overlay atas */}
+                  <div className="absolute bottom-0 left-0 w-full h-[calc(50%-70px)] bg-black/50 z-10"></div> {/*Overlay bawah */}
                 </div>
               ) : (
                 <div className="flex items-center justify-center aspect-video">
@@ -254,49 +417,17 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
                 <p className="text-red-600 text-sm">{cameraError}</p>
               </div>
             )}
-            <Button
-              variant="outline"
-              className="w-full"
-              disabled={devices.length < 2}
-              onClick={async () => {
-                if (!codeReaderRef.current || devices.length < 2) return
-
-                // hentikan stream kamera lama
-                codeReaderRef.current.reset()
-
-                const newState = !isBackCamera
-                setIsBackCamera(newState)
-
-                const deviceId = newState
-                  ? devices[devices.length - 1].deviceId // kamera belakang
-                  : devices[0].deviceId // kamera depan
-
-                codeReaderRef.current.decodeFromVideoDevice(
-                  deviceId,
-                  videoRef.current!,
-                  (result, error) => {
-                    if (result) {
-                      console.log("📷 RAW hasil scan:", result.getText())
-                      handleScanSuccess(result.getText())
-                    }
-                    if (error && !(error.name === "NotFoundException")) {
-                      console.error("Scan error:", error)
-                    }
-                  }
-                )
-              }}
-            >
-              Ganti ke Kamera {isBackCamera ? "Depan" : "Belakang"}
-            </Button>
-
-
-
-
+            
+            {/* Tombol Ganti Kamera kita nonaktifkan/hapus karena logika ganti device
+                akan lebih kompleks dengan metode decodeFromCanvas (perlu restart stream) 
+                Untuk kode yang bersih, kita fokus pada Start/Stop saja
+            */}
+            
             <div className="flex justify-center gap-2">
               {isScanning ? (
                 <Button onClick={stopScanning} variant="outline">
                   <CameraOff className="mr-2 h-4 w-4" />
-                  Stop
+                  Stop Scan
                 </Button>
               ) : (
                 <Button onClick={startScanning}>
@@ -311,7 +442,13 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
         {/* Konfirmasi Scan */}
         <AlertDialog
           open={!!pendingBarcode}
-          onOpenChange={() => setPendingBarcode(null)}
+          onOpenChange={() => {
+            setPendingBarcode(null);
+            // Mulai scan lagi setelah konfirmasi/batal
+            if (!scanResult) { // Jangan mulai jika sudah ada hasil scan
+                startScanning();
+            }
+          }}
         >
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -331,14 +468,13 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
             <AlertDialogFooter>
               <AlertDialogCancel disabled={isLoading}>Batal</AlertDialogCancel>
               <AlertDialogAction onClick={confirmScan} disabled={isLoading}>
-                {isLoading ? "Memproses..." : "Lanjutkan"}
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Memproses...</> : "Lanjutkan"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-       
-
+        
         {/* Result */}
         {scanResult && (
           <Card>
@@ -369,7 +505,10 @@ export function BarcodeScanner({ onBack }: BarcodeScannerProps) {
               </div>
 
               <Button
-                onClick={() => setScanResult(null)}
+                onClick={() => {
+                  setScanResult(null);
+                  startScanning(); // Mulai scan lagi setelah melihat hasil
+                }}
                 variant="outline"
                 className="w-full"
               >

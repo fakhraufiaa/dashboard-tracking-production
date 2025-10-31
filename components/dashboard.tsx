@@ -9,7 +9,7 @@ import { UserManagement } from "./user-management";
 import { BarcodeGenerator } from "./barcode-generator";
 import { ProcessLogging } from "./process-logging";
 import { Button } from "@/components/ui/button";
-import { BarcodeScanner } from "./barcode-scanner";
+import { BarcodeScanner  } from "./barcode-scanner";
 import {
   Card,
   CardContent,

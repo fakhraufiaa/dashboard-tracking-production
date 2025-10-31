@@ -29,6 +29,7 @@
     "@radix-ui/react-toast": "^1.1.5",
     "@types/jsdom": "^21.1.7",
     "@vercel/analytics": "^1.5.0",
+    "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
